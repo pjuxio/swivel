@@ -1,0 +1,17 @@
+:root {
+  --bg: #0b0d14;
+  --panel: #12151f;
+  --panel-2: #1a1e2b;
+  --border: #262b3c;
+  --text: #e8eaf2;
+  --muted: #8b92a8;
+  --accent: #8b5cf6;
+  --accent-2: #22d3ee;
+  --glow: 0 0 24px rgba(139, 92, 246, 0.35);
+  font: 15px/1.45 Inter, system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: dark;
+}
+body { margin: 0; background: var(--bg); }
+#root { width: 100vw; height: 100vh; }
