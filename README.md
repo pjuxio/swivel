@@ -1,3 +1,32 @@
+# SWIVEL
+
+Safety Warning & Instant Vigilance Emergency Link: a map of what's around you (public safety, transportation,
+social, demographic and environmental data) with county-level shading layers.
+
+## Running
+
+The point datasets (hospitals, police, TRI facilities, ...) are served by a small Node/Express API in
+[server/](server). The browser asks it for the places near a location instead of downloading whole datasets.
+
+```sh
+npm install
+cp .env.example .env.local   # optional: add a free NLR_API_KEY for EV chargers
+npm run dev                  # API on :3001 + Vite on :5173 (proxies /api to the API)
+```
+
+`npm run dev:api` and `npm run dev:web` run each half on its own.
+
+Production: `npm start` builds the app and serves it plus `/api` on `PORT` (default 3001).
+
+- `GET /api/amenities?lat=&lon=&radius=<meters, max 200000>&types=hospital,tri,...` returns
+  `{ amenities, errors }`, nearest first, up to 300 per type.
+- Static point datasets live in `server/data/` (built by `scripts/`) and are loaded into memory on first use.
+- EV charging stations are fetched live from the DOE/NLR Alternative Fuels API with `NLR_API_KEY`
+  (falls back to the shared `DEMO_KEY`, which is heavily rate limited) and cached for 10 minutes.
+- County shading layers use the small JSON files in `src/data/` and stay in the browser bundle.
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.

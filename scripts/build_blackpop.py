@@ -1,6 +1,6 @@
 """Build county-level data layers for the map.
 
-Also builds src/data/pres2020.json (2020 presidential results by county) via build_pres2020().
+Also builds src/data/pres20XX.json (presidential results by county) via build_presidential().
 
 Build county-level % Black / African American (ACS table B02001) and county shapes.
 
@@ -65,23 +65,30 @@ def build_ct_regions():
     (OUT / "ct_regions.json").write_text(json.dumps(gj, separators=(",", ":")))
 
 
-def build_pres2020():
-    """2020 presidential results by county (tonmcg/US_County_Level_Election_Results_08-24)."""
+def build_presidential():
+    """Presidential results by county for 2016, 2020 and 2024 (tonmcg/US_County_Level_Election_Results_08-24).
+
+    Writes src/data/pres2016.json, pres2020.json and pres2024.json. 2024 reports Connecticut by planning region.
+    """
     import csv
     import io
-    req = urllib.request.Request(ELECTION, headers={"User-Agent": "swivel-build"})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        rows = csv.DictReader(io.StringIO(r.read().decode("utf-8")))
-        out = {}
-        for row in rows:
-            out[row["county_fips"].zfill(5)] = {
-                "name": f"{row['county_name']}, {row['state_name']}",
-                "gop": int(float(row["votes_gop"])),
-                "dem": int(float(row["votes_dem"])),
-                "total": int(float(row["total_votes"])),
-                "margin": round(float(row["per_point_diff"]) * 100, 1),
-            }
-    (OUT / "pres2020.json").write_text(json.dumps(out, separators=(",", ":")))
+    base = "https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/master"
+    for year in (2016, 2020, 2024):
+        req = urllib.request.Request(f"{base}/{year}_US_County_Level_Presidential_Results.csv", headers={"User-Agent": "swivel-build"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            rows = csv.DictReader(io.StringIO(r.read().decode("utf-8")))
+            out = {}
+            for row in rows:
+                if year == 2016:
+                    fips, name = str(int(float(row["combined_fips"]))).zfill(5), f"{row['county_name']}, {row['state_abbr']}"
+                else:
+                    fips, name = row["county_fips"].zfill(5), f"{row['county_name']}, {row['state_name']}"
+                gop, dem, total = (int(float(row[k])) for k in ("votes_gop", "votes_dem", "total_votes"))
+                if not total:
+                    continue
+                out[fips] = {"name": name, "gop": gop, "dem": dem, "total": total, "margin": round((gop - dem) / total * 100, 1)}
+        (OUT / f"pres{year}.json").write_text(json.dumps(out, separators=(",", ":")))
+        print(year, len(out))
 
 
 def build_violent_crime():
@@ -106,5 +113,5 @@ def build_violent_crime():
 
 if __name__ == "__main__":
     main()
-    build_pres2020()
+    build_presidential()
     build_violent_crime()

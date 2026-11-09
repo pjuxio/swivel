@@ -1,4 +1,4 @@
-"""Build EPA GHGRP facility emissions into src/data/ghgrp.geojson.
+"""Build EPA GHGRP facility emissions into server/data/ghgrp.geojson.
 
 Source: EPA Greenhouse Gas Reporting Program "Direct Point Emitters" sheet, reporting year 2023
 (https://www.epa.gov/ghgreporting/ghgrp-emissions-location, data sets page ->
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import openpyxl
 
-OUT = Path(__file__).resolve().parent.parent / "src" / "data" / "ghgrp.geojson"
+OUT = Path(__file__).resolve().parent.parent / "server" / "data" / "ghgrp.geojson"
 URL = "https://www.epa.gov/system/files/other-files/2024-10/2023_data_summary_spreadsheets.zip"
 YEAR = 2023
 

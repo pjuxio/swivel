@@ -1,7 +1,7 @@
 """Build PFAS-in-drinking-water data from EPA UCMR 5 (public domain).
 
 Outputs:
-  src/data/pfas_systems.geojson  one point per water system with any PFAS detection (searchable layer)
+  server/data/pfas_systems.geojson one point per water system with any PFAS detection (searchable layer)
   src/data/pfas_county.json      per-county max total PFAS (ppt) and counts (county choropleth)
 
 UCMR 5 results don't carry coordinates, so each system is placed at the mean centroid of the ZIP codes
@@ -100,7 +100,7 @@ def main():
             "geometry": {"type": "Point", "coordinates": [round(lon, 4), round(lat, 4)]},
         })
 
-    (DATA / "pfas_systems.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": feats}, separators=(",", ":")))
+    (DATA.parent.parent / "server" / "data" / "pfas_systems.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": feats}, separators=(",", ":")))
     full = {k: v["name"] for k, v in json.loads((DATA / "pres2020.json").read_text()).items()}
     out = {c: {"name": full.get(c, names.get(c, c)), "max": round(v["max"], 1), "systems": v["systems"], "over": v["over"]} for c, v in county.items()}
     (DATA / "pfas_county.json").write_text(json.dumps(out, separators=(",", ":")))

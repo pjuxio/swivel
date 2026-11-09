@@ -43,6 +43,7 @@ def main():
             income = e["B19013"]["B19013001"]
             out[fips] = {
                 "name": payload["geography"][geoid]["name"],
+                "pop": e["B02001"]["B02001001"],
                 "hispanic": pct(e["B03002"]["B03002012"], e["B03002"]["B03002001"]),
                 "asian": pct(e["B02001"]["B02001005"], e["B02001"]["B02001001"]),
                 "aian": pct(e["B02001"]["B02001004"], e["B02001"]["B02001001"]),

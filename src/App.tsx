@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { GROUPS, type LayerGroup, LAYERS, distanceMeters, fetchAmenities, geocode, reverseGeocode, type Amenity, type AmenityType } from './amenities'
 import './App.css'
 import BlackPopLayer, { BlackPopLegend } from './BlackPopLayer'
-import Pres2020Layer, { Pres2020Legend } from './Pres2020Layer'
+import PresidentialLayer, { PresidentialLegend, type PresYear } from './PresidentialLayer'
 import ViolentCrimeLayer, { ViolentCrimeLegend } from './ViolentCrimeLayer'
 import ChoroplethLayer, { ChoroplethLegend } from './ChoroplethLayer'
 import { CHOROPLETHS } from './choropleths'
@@ -41,15 +41,19 @@ function ClickToSet({ onPick }: { onPick: (p: Pos) => void }) {
   return null
 }
 
+const PRES_YEARS: PresYear[] = [2016, 2020, 2024]
+
 const COUNTY_LAYERS: { id: string; group: LayerGroup; emoji: string; label: string; source: string }[] = [
+  { id: 'pres2024', group: 'social', emoji: '🗳️', label: '2024 presidential results', source: 'County level' },
   { id: 'pres2020', group: 'social', emoji: '🗳️', label: '2020 presidential results', source: 'County level' },
+  { id: 'pres2016', group: 'social', emoji: '🗳️', label: '2016 presidential results', source: 'County level' },
   { id: 'blackpop', group: 'demographics', emoji: '🟪', label: 'Black / African American population', source: 'Census ACS 2020–24' },
   ...CHOROPLETHS.map((c) => ({
     id: c.id,
     group: ({
       hispanic: 'demographics', asian: 'demographics', aian: 'demographics', foreign: 'demographics',
       poverty: 'demographics', income: 'demographics', broadband: 'demographics', life: 'demographics',
-      mobile_g4: 'social', mobile_g5: 'social', ej: 'environmental', pfas: 'environmental', aqi: 'environmental',
+      mobile_g4: 'social', mobile_g5: 'social', pres_shift: 'social', hatecrime: 'social', ej: 'environmental', lead: 'environmental', pfas: 'environmental', aqi: 'environmental',
     } as Record<string, LayerGroup>)[c.id],
     emoji: c.emoji,
     label: c.label,
@@ -138,8 +142,10 @@ export default function App() {
     setError(null)
     setSelected(null)
     fetchAmenities(query.pos.lat, query.pos.lon, query.radius, query.types, ctrl.signal)
-      .then((d) => {
-        setData(d)
+      .then(({ amenities, errors }) => {
+        setData(amenities)
+        const failed = Object.keys(errors) as AmenityType[]
+        if (failed.length) setError(`Could not load: ${failed.map((t) => layerOf(t).label).join(', ')}.`)
         setLoading(false)
       })
       .catch((e: Error) => {
@@ -182,7 +188,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="sidebar-body">
         <p className="brand">SWIVEL</p>
-        <h1>Know what's around you.</h1>
+        <h1>Know what's around you. 👀</h1>
         {placed && (
           <p className="where">
             📍 <strong>{placeName ?? 'Locating…'}</strong>
@@ -243,7 +249,7 @@ export default function App() {
         })}
 
         {choropleth === 'blackpop' && <BlackPopLegend />}
-        {choropleth === 'pres2020' && <Pres2020Legend />}
+        {PRES_YEARS.filter((y) => choropleth === `pres${y}`).map((y) => <PresidentialLegend key={y} year={y} />)}
         {choropleth === 'violentcrime' && <ViolentCrimeLegend />}
         {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLegend key={c.id} cfg={c} />)}
 
@@ -288,7 +294,7 @@ export default function App() {
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {choropleth === 'blackpop' && <BlackPopLayer />}
-        {choropleth === 'pres2020' && <Pres2020Layer />}
+        {PRES_YEARS.filter((y) => choropleth === `pres${y}`).map((y) => <PresidentialLayer key={y} year={y} />)}
         {choropleth === 'violentcrime' && <ViolentCrimeLayer />}
         {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLayer key={c.id} cfg={c} />)}
         <FlyTo pos={pos} zoom={zoom} />

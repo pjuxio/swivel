@@ -1,20 +1,5 @@
-import { loadDataCenters } from './datasets/dataCenters'
-import { loadSuperfundSites } from './datasets/superfund'
-import { normalizedLoader } from './datasets/normalized'
-import hospitalUrl from './data/hospital.geojson?url'
-import policeUrl from './data/police.geojson?url'
-import fireUrl from './data/fire_station.geojson?url'
-import urgentUrl from './data/urgent_care.geojson?url'
-import airportUrl from './data/airport.geojson?url'
-import trainUrl from './data/train_station.geojson?url'
-import splcUrl from './data/splc_hate.geojson?url'
-import ghgrpUrl from './data/ghgrp.geojson?url'
-import prisonUrl from './data/prison.geojson?url'
-import pfasUrl from './data/pfas_systems.geojson?url'
-import iceUrl from './data/ice_office.geojson?url'
-import militaryUrl from './data/military.geojson?url'
 
-export type AmenityType = 'hospital' | 'police' | 'fire_station' | 'urgent_care' | 'data_center' | 'superfund' | 'airport' | 'train_station' | 'hate_group' | 'ghg_emitter' | 'pfas_system' | 'prison' | 'military' | 'ice_office'
+export type AmenityType = 'hospital' | 'police' | 'fire_station' | 'urgent_care' | 'data_center' | 'superfund' | 'airport' | 'train_station' | 'hate_group' | 'ghg_emitter' | 'pfas_system' | 'prison' | 'military' | 'ice_office' | 'tri' | 'brownfield' | 'landfill' | 'ev_charger'
 
 export interface AmenityLayer {
   type: AmenityType
@@ -24,8 +9,6 @@ export interface AmenityLayer {
   emoji: string
   // Label shown in the UI
   source: string
-  // Loads the full static dataset bundled with the app
-  load: () => Promise<Amenity[]>
 }
 
 export type LayerGroup = 'public_safety' | 'transportation' | 'social' | 'demographics' | 'environmental'
@@ -42,23 +25,25 @@ const HIFLD = 'HIFLD'
 const DOT = 'US DOT'
 
 export const LAYERS: AmenityLayer[] = [
-  { type: 'hospital', group: 'public_safety', label: 'Hospitals', color: '#d32f2f', emoji: '🏥', source: HIFLD, load: normalizedLoader('hospital', hospitalUrl) },
-  { type: 'police', group: 'public_safety', label: 'Police', color: '#1976d2', emoji: '🚓', source: HIFLD, load: normalizedLoader('police', policeUrl) },
-  { type: 'fire_station', group: 'public_safety', label: 'Fire', color: '#f57c00', emoji: '🚒', source: HIFLD, load: normalizedLoader('fire_station', fireUrl) },
-  { type: 'urgent_care', group: 'public_safety', label: 'Urgent care', color: '#388e3c', emoji: '⛑️', source: HIFLD, load: normalizedLoader('urgent_care', urgentUrl) },
-  { type: 'prison', group: 'public_safety', label: 'Prisons & jails', color: '#37474f', emoji: '⛓️', source: HIFLD, load: normalizedLoader('prison', prisonUrl) },
-  { type: 'military', group: 'public_safety', label: 'Military installations', color: '#33691e', emoji: '🎖️', source: 'US DOT (DoD sites)', load: normalizedLoader('military', militaryUrl) },
-  { type: 'ice_office', group: 'public_safety', label: 'ICE field offices', color: '#283593', emoji: '🛂', source: 'ICE ERO (community-maintained)', load: normalizedLoader('ice_office', iceUrl) },
-  { type: 'airport', group: 'transportation', label: 'Airports', color: '#0277bd', emoji: '✈️', source: DOT, load: normalizedLoader('airport', airportUrl) },
-  { type: 'train_station', group: 'transportation', label: 'Train stations', color: '#6d4c41', emoji: '🚆', source: 'Amtrak (US DOT)', load: normalizedLoader('train_station', trainUrl) },
-  { type: 'hate_group', group: 'social', label: 'Hate & extremist groups', color: '#b71c1c', emoji: '⚠️', source: 'SPLC 2025', load: normalizedLoader('hate_group', splcUrl) },
-  { type: 'data_center', group: 'environmental', label: 'Data centers', color: '#455a64', emoji: '🖥️', source: 'Open Data Center Data', load: loadDataCenters },
-  { type: 'ghg_emitter', group: 'environmental', label: 'Greenhouse gas emitters', color: '#6a1b9a', emoji: '🏭', source: 'EPA GHGRP 2023', load: normalizedLoader('ghg_emitter', ghgrpUrl) },
-  { type: 'pfas_system', group: 'environmental', label: 'PFAS water systems (sites)', color: '#0097a7', emoji: '💧', source: 'EPA UCMR 5', load: normalizedLoader('pfas_system', pfasUrl) },
-  { type: 'superfund', group: 'environmental', label: 'Superfund sites', color: '#827717', emoji: '☣️', source: 'EPA NPL', load: loadSuperfundSites },
+  { type: 'hospital', group: 'public_safety', label: 'Hospitals', color: '#d32f2f', emoji: '🏥', source: HIFLD },
+  { type: 'police', group: 'public_safety', label: 'Police', color: '#1976d2', emoji: '🚓', source: HIFLD },
+  { type: 'fire_station', group: 'public_safety', label: 'Fire', color: '#f57c00', emoji: '🚒', source: HIFLD },
+  { type: 'urgent_care', group: 'public_safety', label: 'Urgent care', color: '#388e3c', emoji: '⛑️', source: HIFLD },
+  { type: 'prison', group: 'public_safety', label: 'Prisons & jails', color: '#37474f', emoji: '⛓️', source: HIFLD },
+  { type: 'military', group: 'public_safety', label: 'Military installations', color: '#33691e', emoji: '🎖️', source: 'US DOT (DoD sites)' },
+  { type: 'ev_charger', group: 'transportation', label: 'EV charging stations', color: '#00897b', emoji: '🔌', source: 'DOE AFDC' },
+  { type: 'ice_office', group: 'public_safety', label: 'ICE field offices', color: '#283593', emoji: '🛂', source: 'ICE ERO (community-maintained)' },
+  { type: 'airport', group: 'transportation', label: 'Airports', color: '#0277bd', emoji: '✈️', source: DOT },
+  { type: 'train_station', group: 'transportation', label: 'Train stations', color: '#6d4c41', emoji: '🚆', source: 'Amtrak (US DOT)' },
+  { type: 'hate_group', group: 'social', label: 'Hate & extremist groups', color: '#b71c1c', emoji: '⚠️', source: 'SPLC 2025' },
+  { type: 'data_center', group: 'environmental', label: 'Data centers', color: '#455a64', emoji: '🖥️', source: 'Open Data Center Data' },
+  { type: 'ghg_emitter', group: 'environmental', label: 'Greenhouse gas emitters', color: '#6a1b9a', emoji: '🏭', source: 'EPA GHGRP 2023' },
+  { type: 'pfas_system', group: 'environmental', label: 'PFAS water systems (sites)', color: '#0097a7', emoji: '💧', source: 'EPA UCMR 5' },
+  { type: 'tri', group: 'environmental', label: 'Toxic release (TRI) facilities', color: '#ad1457', emoji: '🧪', source: 'EPA TRI via FRS' },
+  { type: 'brownfield', group: 'environmental', label: 'Brownfield sites', color: '#8d6e63', emoji: '🏚️', source: 'EPA ACRES via FRS' },
+  { type: 'landfill', group: 'environmental', label: 'Landfills', color: '#5d4037', emoji: '🗑️', source: 'EPA LMOP' },
+  { type: 'superfund', group: 'environmental', label: 'Superfund sites', color: '#827717', emoji: '☣️', source: 'EPA NPL' },
 ]
-
-export const MAX_RESULTS = 300
 
 export interface Amenity {
   id: string
@@ -83,26 +68,27 @@ export function distanceMeters(aLat: number, aLon: number, bLat: number, bLon: n
   return 2 * R * Math.asin(Math.sqrt(h))
 }
 
-export function nearest(items: Amenity[], lat: number, lon: number, radiusM: number): Amenity[] {
-  return items
-    .filter((a) => distanceMeters(lat, lon, a.lat, a.lon) <= radiusM)
-    .sort((a, b) => distanceMeters(lat, lon, a.lat, a.lon) - distanceMeters(lat, lon, b.lat, b.lon))
+export interface AmenityResults {
+  amenities: Amenity[]
+  // Layers the server could not load, keyed by type
+  errors: Partial<Record<AmenityType, string>>
 }
 
+// Searches are served by our own API (server/index.js)
 export async function fetchAmenities(
   lat: number,
   lon: number,
   radiusM: number,
   types: AmenityType[],
   signal?: AbortSignal,
-): Promise<Amenity[]> {
-  const results = await Promise.all(
-    LAYERS.filter((l) => types.includes(l.type)).map(async (l) =>
-      nearest(await l.load(), lat, lon, radiusM).slice(0, MAX_RESULTS),
-    ),
-  )
-  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-  return nearest(results.flat(), lat, lon, Infinity)
+): Promise<AmenityResults> {
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), radius: String(radiusM), types: types.join(',') })
+  const res = await fetch(`/api/amenities?${params}`, { signal })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error ?? `Search failed (${res.status})`)
+  }
+  return res.json()
 }
 
 interface NominatimResult {

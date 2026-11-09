@@ -1,4 +1,4 @@
-"""Geocode splc_hate_data_2025.csv against the Census gazetteer and write src/data/splc_hate.geojson.
+"""Geocode splc_hate_data_2025.csv against the Census gazetteer and write server/data/splc_hate.geojson.
 
 The CSV has only state and city, so pins are placed at the city (or county) centroid.
 Rows flagged statewide have no city and are skipped.
@@ -96,7 +96,7 @@ for i, r in enumerate(csv.DictReader(open(ROOT / "splc_hate_data_2025.csv", enco
         "geometry": {"type": "Point", "coordinates": [round(hit[1], 5), round(hit[0], 5)]},
     })
 
-out = ROOT / "src" / "data" / "splc_hate.geojson"
+out = ROOT / "server" / "data" / "splc_hate.geojson"
 out.write_text(json.dumps({"type": "FeatureCollection", "features": features}, separators=(",", ":")))
 print(f"placed {len(features)}, statewide/no-city skipped {skipped}, unmatched {len(unmatched)}")
 for u in unmatched[:40]:

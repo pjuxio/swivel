@@ -100,6 +100,57 @@ export const CHOROPLETHS: ChoroplethConfig[] = [
   mobileLayer('g4', '📡', 'Mobile 4G LTE coverage', '4G LTE'),
   mobileLayer('g5', '📲', 'Mobile 5G coverage', '5G-NR (35/3 Mbps)'),
   {
+    id: 'hatecrime',
+    emoji: '⚠️',
+    label: 'Hate crimes',
+    source: 'FBI 2020–24',
+    legendTitle: 'Reported hate crimes per 100,000 per year',
+    note: 'FBI Crime Data Explorer incidents 2020–2024, by police agency county. Reporting is voluntary, so low or missing counties may undercount. Gaps = no incidents reported.',
+    scale: scaleOf([0, 1, 2.5, 5, 10, 20], REDS),
+    format: (v) => v.toFixed(1),
+    shapes: 'acs',
+    load: async () => {
+      type H = { name: string; incidents: number; rate: number }
+      const h = (await import('./data/hatecrime.json')).default as Record<string, H>
+      return Object.fromEntries(
+        Object.entries(h).map(([fips, r]) => [
+          fips,
+          { name: r.name, value: r.rate, extra: `${r.incidents.toLocaleString('en-US')} incidents reported, 2020–24` },
+        ]),
+      )
+    },
+  },
+  {
+    id: 'pres_shift',
+    emoji: '↔️',
+    label: 'Presidential shift 2020 → 2024',
+    source: 'County level',
+    legendTitle: 'Change in margin (points)',
+    note: 'Change in Republican-minus-Democratic margin from 2020 to 2024. Positive = shifted toward Republicans. Connecticut and Alaska are blank because their reporting areas changed.',
+    scale: scaleOf([-1000, -10, -5, -2, 2, 5, 10], ['#2166ac', '#67a9cf', '#d1e5f0', '#f7f7f7', '#fddbc7', '#ef8a62', '#b2182b']),
+    format: (v) => `${v > 0 ? 'R +' : v < 0 ? 'D +' : ''}${Math.abs(v).toFixed(0)}`,
+    shapes: 'counties',
+    load: async () => {
+      type P = { name: string; margin: number }
+      const [a, b] = await Promise.all([import('./data/pres2020.json'), import('./data/pres2024.json')])
+      const m20 = a.default as Record<string, P>
+      const m24 = b.default as Record<string, P>
+      const lean = (m: number) => `${m >= 0 ? 'R' : 'D'} +${Math.abs(m).toFixed(1)}`
+      return Object.fromEntries(
+        Object.entries(m24)
+          .filter(([fips]) => m20[fips])
+          .map(([fips, r]) => [
+            fips,
+            {
+              name: r.name,
+              value: r.margin - m20[fips].margin,
+              extra: `2020: ${lean(m20[fips].margin)} → 2024: ${lean(r.margin)}`,
+            },
+          ]),
+      )
+    },
+  },
+  {
     id: 'life',
     emoji: '⏳',
     label: 'Life expectancy',
@@ -130,6 +181,31 @@ export const CHOROPLETHS: ChoroplethConfig[] = [
         Object.entries(ej).map(([fips, r]) => [
           fips,
           { name: r.name, value: r.score * 100, extra: `${r.tracts} census tract${r.tracts === 1 ? '' : 's'}` },
+        ]),
+      )
+    },
+  },
+  {
+    id: 'lead',
+    emoji: '🚰',
+    label: 'Lead in drinking water',
+    source: 'EPA SDWA / ECHO',
+    legendTitle: 'Highest lead 90th percentile of a water system (ppb)',
+    note: 'EPA Lead and Copper Rule results: each community water system\'s most recent 90th-percentile lead level, assigned to the counties it serves. EPA action level is 15 ppb. Data comes from state reporting and may contain errors.',
+    scale: scaleOf([0, 5, 10, 15, 30, 60], ORANGES),
+    format: (v) => `${v.toFixed(0)} ppb`,
+    shapes: 'counties',
+    load: async () => {
+      type L = { name: string; max: number; systems: number; over: number; year: number }
+      const l = (await import('./data/lead.json')).default as Record<string, L>
+      return Object.fromEntries(
+        Object.entries(l).map(([fips, r]) => [
+          fips,
+          {
+            name: r.name,
+            value: r.max,
+            extra: `${r.systems} system${r.systems === 1 ? '' : 's'} · ${r.over} above the 15 ppb action level · latest result ${r.year}`,
+          },
         ]),
       )
     },

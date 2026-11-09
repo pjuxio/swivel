@@ -1,7 +1,7 @@
-"""Download national point datasets and save trimmed GeoJSON into src/data.
+"""Download national point datasets and save trimmed GeoJSON into server/data.
 
 Usage: python3 scripts/fetch_datasets.py [name ...]
-Names: hospital police fire_station urgent_care airport train_station prison military ice_office
+Names: hospital police fire_station urgent_care airport train_station prison military ice_office tri brownfield landfill
 """
 import json
 import sys
@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent.parent / "src" / "data"
+OUT = Path(__file__).resolve().parent.parent / "server" / "data"
 FEMA = "https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services"
 NTAD = "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services"
 
@@ -63,6 +63,34 @@ def ice_office(p):
         "phone": clean(p.get("Phone")),
         "website": None,
         "details": [["Area of responsibility", clean(p.get("Area_of_Responsibility"))]] if clean(p.get("Area_of_Responsibility")) else [],
+    }
+
+
+def frs(p):
+    return {
+        "name": (clean(p.get("PRIMARY_NAME")) or "Unnamed").title(),  # kept lean: these files have ~45k rows each
+        "address": join_address(p, street="LOCATION_ADDRESS", city="CITY_NAME", state="STATE_CODE", zip_="POSTAL_CODE"),
+        "phone": None,
+        "website": None,
+        "details": [],
+    }
+
+
+def landfill(p):
+    def tons(v):
+        return f"{int(v):,} tons" if isinstance(v, (int, float)) and v > 0 else None
+    return {
+        "name": clean(p.get("landfill_name")) or "Unnamed",
+        "address": clean(p.get("county_state")),
+        "phone": None,
+        "website": None,
+        "details": [[l, v] for l, v in (
+            ("Status", clean(p.get("current_landfill_status"))),
+            ("Owner", clean(p.get("landfill_owner_org"))),
+            ("Opened", clean(p.get("year_landfill_opened"))),
+            ("Waste in place", tons(p.get("waste_in_place_tons"))),
+            ("Gas collection", clean(p.get("lfg_collection_system"))),
+        ) if v],
     }
 
 
@@ -129,6 +157,21 @@ DATASETS = {
         url="https://services8.arcgis.com/OaGD4UoLmJKrKXBG/arcgis/rest/services/ICE_Enforcement_and_Removal_Operations_(ERO)_Field_Offices/FeatureServer/0",
         where="1=1",
         map=ice_office,
+    ),
+    "tri": dict(
+        url="https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/FRS_INTERESTS_TRI/FeatureServer/0",
+        where="ACTIVE_STATUS='ACTIVE'",
+        map=frs,
+    ),
+    "brownfield": dict(
+        url="https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/FRS_INTERESTS_ACRES/FeatureServer/0",
+        where="1=1",
+        map=frs,
+    ),
+    "landfill": dict(
+        url="https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/New_Landfills/FeatureServer/0",
+        where="1=1",
+        map=landfill,
     ),
     "train_station": dict(
         url=f"{NTAD}/NTAD_Amtrak_Stations/FeatureServer/0",
