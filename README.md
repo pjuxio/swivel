@@ -27,6 +27,22 @@ Production: `npm start` builds the app and serves it plus `/api` on `PORT` (defa
 
 ---
 
+## Deploying to Heroku
+
+The app is one Node process (Express serves `/api` and the built front end), so it deploys as-is.
+
+```sh
+heroku create <app-name>
+heroku config:set NLR_API_KEY=<free key from https://developer.nlr.gov/signup/>
+heroku config:set APP_PASSWORD=<shared password>   # optional: puts the whole app behind a password prompt
+git push heroku main                                # or connect the GitHub repo in the dashboard
+```
+
+- `Procfile` runs `npm run server`; the `heroku-postbuild` script builds the front end; `engines` pins Node 22.
+- With every layer loaded the server used about 280 MB of memory, so the 512 MB dynos have headroom but little to spare.
+- `GET /api/health` is always open (use it for uptime checks); everything else requires the password when `APP_PASSWORD` is set.
+- Any host that runs a Node server works the same way (build with `npm ci && npm run build`, start with `npm run server`).
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.

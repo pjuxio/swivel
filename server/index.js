@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -46,9 +47,24 @@ function rateLimit({ windowMs, max }) {
   }
 }
 
+// Optional shared password for the whole app (HTTP Basic auth), enabled by setting APP_PASSWORD
+function basicAuth(password) {
+  const expected = crypto.createHash('sha256').update(password).digest()
+  return (req, res, next) => {
+    if (req.path === '/api/health') return next()
+    const [scheme, encoded] = (req.headers.authorization ?? '').split(' ')
+    if (scheme === 'Basic' && encoded) {
+      const given = Buffer.from(encoded, 'base64').toString().split(':').slice(1).join(':')
+      if (crypto.timingSafeEqual(crypto.createHash('sha256').update(given).digest(), expected)) return next()
+    }
+    res.set('WWW-Authenticate', 'Basic realm="SWIVEL", charset="UTF-8"').status(401).send('Authentication required.')
+  }
+}
+
 const app = express()
 app.disable('x-powered-by')
 app.set('trust proxy', 1)
+if (process.env.APP_PASSWORD) app.use(basicAuth(process.env.APP_PASSWORD))
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
