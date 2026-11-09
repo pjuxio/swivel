@@ -13,3 +13,17 @@ export function loadCounties(): Promise<FeatureCollection> {
   )
   return counties
 }
+
+let acsShapes: Promise<FeatureCollection> | null = null
+
+// ACS keys Connecticut by planning region, so swap them in for the old CT counties
+export function loadAcsShapes(): Promise<FeatureCollection> {
+  acsShapes ??= Promise.all([loadCounties(), import('./data/ct_regions.json')]).then(([counties, ct]) => ({
+    type: 'FeatureCollection',
+    features: [
+      ...counties.features.filter((f) => !String(f.id).startsWith('09')),
+      ...(ct.default as unknown as FeatureCollection).features,
+    ],
+  }))
+  return acsShapes
+}

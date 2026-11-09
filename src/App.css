@@ -60,6 +60,28 @@ button.primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; 
 .lookup button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .layers { display: flex; flex-direction: column; gap: 6px; }
+.group {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; user-select: none;
+  margin: 0 0 6px; padding: 10px 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.group:hover { border-color: var(--accent); background: #212638; }
+.group::-webkit-details-marker { display: none; }
+.grp-label { flex: 1; }
+.group::after {
+  content: ''; flex: none; width: 7px; height: 7px; margin: 0 4px 3px 4px;
+  border-right: 2px solid var(--accent-2); border-bottom: 2px solid var(--accent-2);
+  transform: rotate(45deg); transition: transform 0.15s;
+}
+details[open] > .group::after { transform: rotate(-135deg); margin-bottom: -3px; }
+details[open] > .group { border-color: var(--accent); }
+.badge {
+  background: var(--accent); color: #fff; border-radius: 999px;
+  padding: 0 7px; font-size: 11px; letter-spacing: 0;
+}
+details.layers > .layer { margin-bottom: 0; }
 .layer {
   display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 7px 10px;
   background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; font-size: 14px;

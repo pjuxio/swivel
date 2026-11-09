@@ -30,7 +30,7 @@ export function BlackPopLegend() {
           {i === 0 ? `≥ ${min}%` : i === SCALE.length - 1 ? `< ${SCALE[i - 1][0]}%` : `${min}–${SCALE[i - 1][0]}%`}
         </div>
       ))}
-      <small>County level · ACS 5-year via Census Reporter</small>
+      <small>County level · ACS 2020–2024 5-year via Census Reporter</small>
     </div>
   )
 }

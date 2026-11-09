@@ -13,6 +13,7 @@ export type AmenityType = 'hospital' | 'police' | 'fire_station' | 'urgent_care'
 
 export interface AmenityLayer {
   type: AmenityType
+  group: LayerGroup
   label: string
   color: string
   emoji: string
@@ -22,19 +23,28 @@ export interface AmenityLayer {
   load: () => Promise<Amenity[]>
 }
 
+export type LayerGroup = 'public_safety' | 'transportation' | 'social' | 'environmental'
+
+export const GROUPS: { id: LayerGroup; label: string }[] = [
+  { id: 'public_safety', label: 'Public Safety' },
+  { id: 'transportation', label: 'Transportation' },
+  { id: 'social', label: 'Social' },
+  { id: 'environmental', label: 'Environmental' },
+]
+
 const HIFLD = 'HIFLD'
 const DOT = 'US DOT'
 
 export const LAYERS: AmenityLayer[] = [
-  { type: 'hospital', label: 'Hospitals', color: '#d32f2f', emoji: '🏥', source: HIFLD, load: normalizedLoader('hospital', hospitalUrl) },
-  { type: 'police', label: 'Police', color: '#1976d2', emoji: '🚓', source: HIFLD, load: normalizedLoader('police', policeUrl) },
-  { type: 'fire_station', label: 'Fire', color: '#f57c00', emoji: '🚒', source: HIFLD, load: normalizedLoader('fire_station', fireUrl) },
-  { type: 'urgent_care', label: 'Urgent care', color: '#388e3c', emoji: '⛑️', source: HIFLD, load: normalizedLoader('urgent_care', urgentUrl) },
-  { type: 'airport', label: 'Airports', color: '#0277bd', emoji: '✈️', source: DOT, load: normalizedLoader('airport', airportUrl) },
-  { type: 'train_station', label: 'Train stations', color: '#6d4c41', emoji: '🚆', source: 'Amtrak (US DOT)', load: normalizedLoader('train_station', trainUrl) },
-  { type: 'hate_group', label: 'Hate & extremist groups', color: '#b71c1c', emoji: '⚠️', source: 'SPLC 2025', load: normalizedLoader('hate_group', splcUrl) },
-  { type: 'data_center', label: 'Data centers', color: '#455a64', emoji: '🖥️', source: 'Open Data Center Data', load: loadDataCenters },
-  { type: 'superfund', label: 'Superfund sites', color: '#827717', emoji: '☣️', source: 'EPA NPL', load: loadSuperfundSites },
+  { type: 'hospital', group: 'public_safety', label: 'Hospitals', color: '#d32f2f', emoji: '🏥', source: HIFLD, load: normalizedLoader('hospital', hospitalUrl) },
+  { type: 'police', group: 'public_safety', label: 'Police', color: '#1976d2', emoji: '🚓', source: HIFLD, load: normalizedLoader('police', policeUrl) },
+  { type: 'fire_station', group: 'public_safety', label: 'Fire', color: '#f57c00', emoji: '🚒', source: HIFLD, load: normalizedLoader('fire_station', fireUrl) },
+  { type: 'urgent_care', group: 'public_safety', label: 'Urgent care', color: '#388e3c', emoji: '⛑️', source: HIFLD, load: normalizedLoader('urgent_care', urgentUrl) },
+  { type: 'airport', group: 'transportation', label: 'Airports', color: '#0277bd', emoji: '✈️', source: DOT, load: normalizedLoader('airport', airportUrl) },
+  { type: 'train_station', group: 'transportation', label: 'Train stations', color: '#6d4c41', emoji: '🚆', source: 'Amtrak (US DOT)', load: normalizedLoader('train_station', trainUrl) },
+  { type: 'hate_group', group: 'social', label: 'Hate & extremist groups', color: '#b71c1c', emoji: '⚠️', source: 'SPLC 2025', load: normalizedLoader('hate_group', splcUrl) },
+  { type: 'data_center', group: 'environmental', label: 'Data centers', color: '#455a64', emoji: '🖥️', source: 'Open Data Center Data', load: loadDataCenters },
+  { type: 'superfund', group: 'environmental', label: 'Superfund sites', color: '#827717', emoji: '☣️', source: 'EPA NPL', load: loadSuperfundSites },
 ]
 
 export const MAX_RESULTS = 300

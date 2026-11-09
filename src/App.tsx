@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
 import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { LAYERS, distanceMeters, fetchAmenities, geocode, reverseGeocode, type Amenity, type AmenityType } from './amenities'
+import { GROUPS, LAYERS, distanceMeters, fetchAmenities, geocode, reverseGeocode, type Amenity, type AmenityType } from './amenities'
 import './App.css'
 import BlackPopLayer, { BlackPopLegend } from './BlackPopLayer'
 import Pres2020Layer, { Pres2020Legend } from './Pres2020Layer'
 import ViolentCrimeLayer, { ViolentCrimeLegend } from './ViolentCrimeLayer'
+import ChoroplethLayer, { ChoroplethLegend } from './ChoroplethLayer'
+import { CHOROPLETHS } from './choropleths'
 
 type Pos = { lat: number; lon: number }
 const DEFAULT_POS: Pos = { lat: 40.7128, lon: -74.006 }
-const RADII = [1000, 3000, 5000, 10000, 25000]
+const RADII = [1000, 3000, 5000, 10000, 25000, 100000]
 const layerOf = (t: AmenityType) => LAYERS.find((l) => l.type === t)!
 
 const ICONS = Object.fromEntries(
@@ -56,7 +58,7 @@ export default function App() {
   const [query, setQuery] = useState<{ pos: Pos; radius: number; types: AmenityType[] } | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [address, setAddress] = useState('')
-  const [choropleth, setChoropleth] = useState<'blackpop' | 'pres2020' | 'violentcrime' | null>(null)
+  const [choropleth, setChoropleth] = useState<string | null>(null)
   const [finding, setFinding] = useState(false)
 
   const findAddress = async (e: React.FormEvent) => {
@@ -130,7 +132,7 @@ export default function App() {
     data.forEach((a) => (c[a.type] = (c[a.type] ?? 0) + 1))
     return c
   }, [data])
-  const zoom = radius <= 1000 ? 15 : radius <= 3000 ? 13 : radius <= 5000 ? 12 : radius <= 10000 ? 11 : 10
+  const zoom = radius <= 1000 ? 15 : radius <= 3000 ? 13 : radius <= 5000 ? 12 : radius <= 10000 ? 11 : radius <= 25000 ? 10 : 8
 
   const reset = () => {
     setAddress('')
@@ -186,30 +188,55 @@ export default function App() {
           </select>
         </label>
 
-        <div className="layers">
-          {LAYERS.map((l) => (
-            <label key={l.type} className="layer">
-              <input type="checkbox" checked={enabled.includes(l.type)} onChange={() => toggle(l.type)} />
-              <span className="dot" style={{ background: l.color }} />
-              {l.emoji} <span>{l.label}</span> <small className="source">{l.source ?? 'OpenStreetMap'}</small> {query?.types.includes(l.type) && !loading && <small>({counts[l.type] ?? 0})</small>}
-            </label>
-          ))}
-          <label className="layer">
-            <input type="checkbox" data-layer="blackpop" checked={choropleth === 'blackpop'} onChange={(e) => setChoropleth(e.target.checked ? 'blackpop' : null)} />
-            🟪 <span>Black / African American population</span> <small className="source">Census ACS</small>
-          </label>
+        {GROUPS.map((g) => (
+          <details key={g.id} className="layers">
+            <summary className="group">
+              <span className="grp-label">{g.label}</span>
+              {LAYERS.filter((l) => l.group === g.id && enabled.includes(l.type)).length > 0 && (
+                <span className="badge">{LAYERS.filter((l) => l.group === g.id && enabled.includes(l.type)).length}</span>
+              )}
+            </summary>
+            {LAYERS.filter((l) => l.group === g.id).map((l) => (
+              <label key={l.type} className="layer">
+                <input type="checkbox" checked={enabled.includes(l.type)} onChange={() => toggle(l.type)} />
+                <span className="dot" style={{ background: l.color }} />
+                {l.emoji} <span>{l.label}</span> <small className="source">{l.source ?? 'OpenStreetMap'}</small> {query?.types.includes(l.type) && !loading && <small>({counts[l.type] ?? 0})</small>}
+              </label>
+            ))}
+          </details>
+        ))}
+
+        <details className="layers">
+          <summary className="group">
+            <span className="grp-label">County map layers</span>{choropleth && <span className="badge">1</span>}
+          </summary>
           <label className="layer">
             <input type="checkbox" data-layer="pres2020" checked={choropleth === 'pres2020'} onChange={(e) => setChoropleth(e.target.checked ? 'pres2020' : null)} />
             🗳️ <span>2020 presidential results</span> <small className="source">County level</small>
           </label>
           <label className="layer">
-            <input type="checkbox" data-layer="violentcrime" checked={choropleth === 'violentcrime'} onChange={(e) => setChoropleth(e.target.checked ? 'violentcrime' : null)} />
-            🚨 <span>Violent crime rate</span> <small className="source">CHR 2022 · older data</small>
+            <input type="checkbox" data-layer="blackpop" checked={choropleth === 'blackpop'} onChange={(e) => setChoropleth(e.target.checked ? 'blackpop' : null)} />
+            🟪 <span>Black / African American population</span> <small className="source">Census ACS 2020–24</small>
           </label>
-        </div>
+          {CHOROPLETHS.map((c) => (
+            <Fragment key={c.id}>
+              <label className="layer">
+                <input type="checkbox" data-layer={c.id} checked={choropleth === c.id} onChange={(e) => setChoropleth(e.target.checked ? c.id : null)} />
+                {c.emoji} <span>{c.label}</span> <small className="source">{c.source}</small>
+              </label>
+              {c.id === 'income' && (
+                <label className="layer">
+                  <input type="checkbox" data-layer="violentcrime" checked={choropleth === 'violentcrime'} onChange={(e) => setChoropleth(e.target.checked ? 'violentcrime' : null)} />
+                  🚨 <span>Violent crime rate</span> <small className="source">CHR 2022 · older data</small>
+                </label>
+              )}
+            </Fragment>
+          ))}
+        </details>
         {choropleth === 'blackpop' && <BlackPopLegend />}
         {choropleth === 'pres2020' && <Pres2020Legend />}
         {choropleth === 'violentcrime' && <ViolentCrimeLegend />}
+        {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLegend key={c.id} cfg={c} />)}
 
         <button
           className="primary"
@@ -248,6 +275,7 @@ export default function App() {
         {choropleth === 'blackpop' && <BlackPopLayer />}
         {choropleth === 'pres2020' && <Pres2020Layer />}
         {choropleth === 'violentcrime' && <ViolentCrimeLayer />}
+        {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLayer key={c.id} cfg={c} />)}
         <FlyTo pos={pos} zoom={zoom} />
         <ClickToSet onPick={(p) => { setPos(p); setLocated(false); setPlaced(true) }} />
         <Circle center={[pos.lat, pos.lon]} radius={radius} pathOptions={{ color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.1, weight: 2, dashArray: '6 8' }} />
