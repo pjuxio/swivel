@@ -1,7 +1,7 @@
 """Download national point datasets and save trimmed GeoJSON into src/data.
 
 Usage: python3 scripts/fetch_datasets.py [name ...]
-Names: hospital police fire_station urgent_care airport train_station
+Names: hospital police fire_station urgent_care airport train_station prison military ice_office
 """
 import json
 import sys
@@ -56,6 +56,38 @@ def amtrak(p):
     }
 
 
+def ice_office(p):
+    return {
+        "name": clean(p.get("Office_Name")) or "Unnamed",
+        "address": " ".join((clean(p.get("Address")) or "").split()) or None,
+        "phone": clean(p.get("Phone")),
+        "website": None,
+        "details": [["Area of responsibility", clean(p.get("Area_of_Responsibility"))]] if clean(p.get("Area_of_Responsibility")) else [],
+    }
+
+
+MIL_BRANCH = {
+    "usa": "Army", "usar": "Army Reserve", "armyNationalGuard": "Army National Guard", "usn": "Navy",
+    "usnr": "Navy Reserve", "usaf": "Air Force", "afr": "Air Force Reserve", "airNationalGuard": "Air National Guard",
+    "usmc": "Marine Corps", "usmcr": "Marine Corps Reserve", "whs": "Washington Headquarters Services",
+}
+MIL_STATUS = {"act": "Active", "care": "Caretaker", "clsd": "Closed", "semi": "Semi-active", "excs": "Excess"}
+
+
+def military(p):
+    branch, status = clean(p.get("siteReportingComponent")), clean(p.get("siteOperationalStatus"))
+    state = clean(p.get("stateNameCode"))
+    return {
+        "name": clean(p.get("siteName")) or clean(p.get("featureName")) or "Unnamed",
+        "address": state.upper() if state else None,
+        "phone": None,
+        "website": None,
+        "details": [[l, v] for l, v in (
+            ("Branch", MIL_BRANCH.get(branch, branch)), ("Status", MIL_STATUS.get(status, status)),
+        ) if v],
+    }
+
+
 DATASETS = {
     "hospital": dict(
         url=f"{FEMA}/Hospitals_hifld/FeatureServer/0",
@@ -82,6 +114,22 @@ DATASETS = {
         where="SITE_TYPE_CODE='A' AND ARPT_STATUS='O' AND FACILITY_USE_CODE='PU'",
         map=airport,
     ),
+    "prison": dict(
+        url=f"{FEMA}/Prison_Points/FeatureServer/0",
+        where="STATUS='OPEN' OR STATUS IS NULL",
+        map=lambda p: facility(p, (("Type", "TYPE"), ("Security level", "SECURELVL"), ("Population", "POPULATION"), ("Capacity", "CAPACITY"))),
+    ),
+    "military": dict(
+        url=f"{NTAD}/NTAD_Military_Bases/FeatureServer/0",
+        where="1=1",
+        centroid=True,
+        map=military,
+    ),
+    "ice_office": dict(
+        url="https://services8.arcgis.com/OaGD4UoLmJKrKXBG/arcgis/rest/services/ICE_Enforcement_and_Removal_Operations_(ERO)_Field_Offices/FeatureServer/0",
+        where="1=1",
+        map=ice_office,
+    ),
     "train_station": dict(
         url=f"{NTAD}/NTAD_Amtrak_Stations/FeatureServer/0",
         where="StnType='TRAIN'",
@@ -105,13 +153,14 @@ def fetch(name, cfg):
         d = query(
             cfg["url"],
             {"where": cfg["where"], "outFields": "*", "outSR": 4326, "f": "json",
-             "resultOffset": offset, "resultRecordCount": 1000, "orderByFields": oid},
+             "resultOffset": offset, "resultRecordCount": 1000, "orderByFields": oid,
+             **({"returnCentroid": "true", "returnGeometry": "false"} if cfg.get("centroid") else {})},
         )
         if "error" in d:
             raise RuntimeError(f"{name}: {d['error']}")
         batch = d.get("features", [])
         for f in batch:
-            g = f.get("geometry") or {}
+            g = f.get("centroid") or f.get("geometry") or {}
             if "x" not in g or not (-180 <= g["x"] <= 180) or not (-90 <= g["y"] <= 90):
                 continue
             props = cfg["map"](f["attributes"])

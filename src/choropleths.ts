@@ -135,6 +135,31 @@ export const CHOROPLETHS: ChoroplethConfig[] = [
     },
   },
   {
+    id: 'pfas',
+    emoji: '💧',
+    label: 'PFAS in drinking water',
+    source: 'EPA UCMR 5',
+    legendTitle: 'Highest total PFAS in a water system (ppt)',
+    note: 'EPA UCMR 5 (2023–2025) results. Each water system is assigned to the counties of the ZIP codes it serves, so locations are approximate. Gaps = no PFAS detected or not tested.',
+    scale: scaleOf([0, 5, 10, 20, 40, 80], BLUES),
+    format: (v) => `${v.toFixed(0)} ppt`,
+    shapes: 'counties',
+    load: async () => {
+      type Pfas = { name: string; max: number; systems: number; over: number }
+      const p = (await import('./data/pfas_county.json')).default as Record<string, Pfas>
+      return Object.fromEntries(
+        Object.entries(p).map(([fips, r]) => [
+          fips,
+          {
+            name: r.name,
+            value: r.max,
+            extra: `${r.systems} system${r.systems === 1 ? '' : 's'} with PFAS · ${r.over} above the 4 ppt PFOA/PFOS limit`,
+          },
+        ]),
+      )
+    },
+  },
+  {
     id: 'aqi',
     emoji: '🌫️',
     label: 'Air quality',

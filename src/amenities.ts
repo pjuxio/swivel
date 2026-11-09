@@ -8,8 +8,13 @@ import urgentUrl from './data/urgent_care.geojson?url'
 import airportUrl from './data/airport.geojson?url'
 import trainUrl from './data/train_station.geojson?url'
 import splcUrl from './data/splc_hate.geojson?url'
+import ghgrpUrl from './data/ghgrp.geojson?url'
+import prisonUrl from './data/prison.geojson?url'
+import pfasUrl from './data/pfas_systems.geojson?url'
+import iceUrl from './data/ice_office.geojson?url'
+import militaryUrl from './data/military.geojson?url'
 
-export type AmenityType = 'hospital' | 'police' | 'fire_station' | 'urgent_care' | 'data_center' | 'superfund' | 'airport' | 'train_station' | 'hate_group'
+export type AmenityType = 'hospital' | 'police' | 'fire_station' | 'urgent_care' | 'data_center' | 'superfund' | 'airport' | 'train_station' | 'hate_group' | 'ghg_emitter' | 'pfas_system' | 'prison' | 'military' | 'ice_office'
 
 export interface AmenityLayer {
   type: AmenityType
@@ -40,10 +45,15 @@ export const LAYERS: AmenityLayer[] = [
   { type: 'police', group: 'public_safety', label: 'Police', color: '#1976d2', emoji: '🚓', source: HIFLD, load: normalizedLoader('police', policeUrl) },
   { type: 'fire_station', group: 'public_safety', label: 'Fire', color: '#f57c00', emoji: '🚒', source: HIFLD, load: normalizedLoader('fire_station', fireUrl) },
   { type: 'urgent_care', group: 'public_safety', label: 'Urgent care', color: '#388e3c', emoji: '⛑️', source: HIFLD, load: normalizedLoader('urgent_care', urgentUrl) },
+  { type: 'prison', group: 'public_safety', label: 'Prisons & jails', color: '#37474f', emoji: '⛓️', source: HIFLD, load: normalizedLoader('prison', prisonUrl) },
+  { type: 'military', group: 'public_safety', label: 'Military installations', color: '#33691e', emoji: '🎖️', source: 'US DOT (DoD sites)', load: normalizedLoader('military', militaryUrl) },
+  { type: 'ice_office', group: 'public_safety', label: 'ICE field offices', color: '#283593', emoji: '🛂', source: 'ICE ERO (community-maintained)', load: normalizedLoader('ice_office', iceUrl) },
   { type: 'airport', group: 'transportation', label: 'Airports', color: '#0277bd', emoji: '✈️', source: DOT, load: normalizedLoader('airport', airportUrl) },
   { type: 'train_station', group: 'transportation', label: 'Train stations', color: '#6d4c41', emoji: '🚆', source: 'Amtrak (US DOT)', load: normalizedLoader('train_station', trainUrl) },
   { type: 'hate_group', group: 'social', label: 'Hate & extremist groups', color: '#b71c1c', emoji: '⚠️', source: 'SPLC 2025', load: normalizedLoader('hate_group', splcUrl) },
   { type: 'data_center', group: 'environmental', label: 'Data centers', color: '#455a64', emoji: '🖥️', source: 'Open Data Center Data', load: loadDataCenters },
+  { type: 'ghg_emitter', group: 'environmental', label: 'Greenhouse gas emitters', color: '#6a1b9a', emoji: '🏭', source: 'EPA GHGRP 2023', load: normalizedLoader('ghg_emitter', ghgrpUrl) },
+  { type: 'pfas_system', group: 'environmental', label: 'PFAS in drinking water', color: '#0097a7', emoji: '💧', source: 'EPA UCMR 5', load: normalizedLoader('pfas_system', pfasUrl) },
   { type: 'superfund', group: 'environmental', label: 'Superfund sites', color: '#827717', emoji: '☣️', source: 'EPA NPL', load: loadSuperfundSites },
 ]
 
