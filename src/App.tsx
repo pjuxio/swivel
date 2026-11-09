@@ -166,13 +166,7 @@ export default function App() {
   const zoom = radius <= 1000 ? 15 : radius <= 3000 ? 13 : radius <= 5000 ? 12 : radius <= 10000 ? 11 : radius <= 25000 ? 10 : 8
 
   const reset = () => {
-    setAddress('')
     setChoropleth(null)
-    setPos(DEFAULT_POS)
-    setLocated(false)
-    setPlaced(false)
-    setPlaceName(null)
-    setRadius(5000)
     setEnabled([])
     setQuery(null)
     setData([])
