@@ -87,6 +87,7 @@ export default function App() {
   const [query, setQuery] = useState<{ pos: Pos; radius: number; types: AmenityType[] } | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [address, setAddress] = useState('')
+  const [legendOpen, setLegendOpen] = useState(true)
   const [choropleth, setChoropleth] = useState<string | null>(null)
   const [finding, setFinding] = useState(false)
 
@@ -242,10 +243,6 @@ export default function App() {
           )
         })}
 
-        {choropleth === 'blackpop' && <BlackPopLegend />}
-        {PRES_YEARS.filter((y) => choropleth === `pres${y}`).map((y) => <PresidentialLegend key={y} year={y} />)}
-        {choropleth === 'violentcrime' && <ViolentCrimeLegend />}
-        {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLegend key={c.id} cfg={c} />)}
 
 
         {loading && (
@@ -282,6 +279,7 @@ export default function App() {
         </div>
       </aside>
 
+      <div className="map-wrap">
       <MapContainer center={[pos.lat, pos.lon]} zoom={zoom} className="map">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -329,6 +327,28 @@ export default function App() {
           </Marker>
         ))}
       </MapContainer>
+      {choropleth && (
+        <div className="map-legend">
+          <button
+            type="button"
+            className="legend-toggle"
+            aria-expanded={legendOpen}
+            onClick={() => setLegendOpen((o) => !o)}
+          >
+            <span>Legend</span>
+            <span className="legend-caret" aria-hidden="true" />
+          </button>
+          {legendOpen && (
+            <>
+              {choropleth === 'blackpop' && <BlackPopLegend />}
+              {PRES_YEARS.filter((y) => choropleth === `pres${y}`).map((y) => <PresidentialLegend key={y} year={y} />)}
+              {choropleth === 'violentcrime' && <ViolentCrimeLegend />}
+              {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLegend key={c.id} cfg={c} />)}
+            </>
+          )}
+        </div>
+      )}
+      </div>
     </div>
   )
 }
