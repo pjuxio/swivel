@@ -1,7 +1,7 @@
 """Build county ACS demographic measures for the map layers into src/data/acs.json.
 
 Measures (percent of residents unless noted): hispanic, asian, aian (Native American / Alaska Native),
-foreign-born, poverty, plus median household income in dollars.
+foreign-born, poverty, broadband (households with a broadband subscription), plus median household income in dollars.
 Uses Census Reporter (no API key needed), ACS 2024 5-year release (2020-2024). Connecticut comes back as
 planning regions (09110-09190), matching src/data/ct_regions.json.
 
@@ -14,7 +14,7 @@ from pathlib import Path
 OUT = Path(__file__).resolve().parent.parent / "src" / "data"
 URL = (
     "https://api.censusreporter.org/1.0/data/show/latest"
-    "?table_ids=B02001,B03002,B05002,B17001,B19013&geo_ids=050%7C04000US{state}"
+    "?table_ids=B02001,B03002,B05002,B17001,B19013,B28002&geo_ids=050%7C04000US{state}"
 )
 STATES = [f"{i:02d}" for i in range(1, 57) if i not in (3, 7, 14, 43, 52)] + ["72"]
 
@@ -48,6 +48,7 @@ def main():
                 "aian": pct(e["B02001"]["B02001004"], e["B02001"]["B02001001"]),
                 "foreign": pct(e["B05002"]["B05002013"], e["B05002"]["B05002001"]),
                 "poverty": pct(e["B17001"]["B17001002"], e["B17001"]["B17001001"]),
+                "broadband": pct(e["B28002"]["B28002004"], e["B28002"]["B28002001"]),
                 "income": round(income) if income and income > 0 else None,
             }
         print(st, len(out))

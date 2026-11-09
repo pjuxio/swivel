@@ -21,12 +21,13 @@ const TEALS = ['#edf8fb', '#ccece6', '#99d8c9', '#66c2a4', '#2ca25f', '#006d2c']
 const GREENS = ['#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#31a354', '#006837']
 const PINKS = ['#feebe2', '#fcc5c0', '#fa9fb5', '#f768a1', '#c51b8a', '#7a0177']
 const REDS = ['#fee5d9', '#fcbba1', '#fc9272', '#fb6a4a', '#de2d26', '#a50f15']
+const PURPLES = ['#f2f0f7', '#dadaeb', '#bcbddc', '#9e9ac8', '#756bb1', '#54278f']
 const BROWNS = ['#ffffd4', '#fee391', '#fec44f', '#fe9929', '#d95f0e', '#993404']
 
 const scaleOf = (mins: number[], colors: string[]): [number, string][] => mins.map((m, i) => [m, colors[i]])
 const pct = (v: number) => `${v.toFixed(1)}%`
 
-type AcsField = 'hispanic' | 'asian' | 'aian' | 'foreign' | 'poverty' | 'income'
+type AcsField = 'hispanic' | 'asian' | 'aian' | 'foreign' | 'poverty' | 'broadband' | 'income'
 type AcsRow = { name: string } & Record<AcsField, number | null>
 
 const loadAcs = (field: AcsField) => async () => {
@@ -54,6 +55,33 @@ const acsLayer = (
   load: loadAcs(id),
 })
 
+type MobileRow = { name: string; g4: number | null; g4v: number | null; g5: number | null; g5v: number | null }
+
+const mobileLayer = (field: 'g4' | 'g5', emoji: string, label: string, tech: string): ChoroplethConfig => ({
+  id: `mobile_${field}`,
+  emoji,
+  label,
+  source: 'FCC BDC',
+  legendTitle: `% of county area with ${tech} coverage`,
+  note: 'FCC Broadband Data Collection, mobile coverage (stationary). Share of land area, not population.',
+  scale: scaleOf([0, 25, 50, 75, 90, 99], TEALS),
+  format: pct,
+  shapes: 'counties',
+  load: async () => {
+    const m = (await import('./data/mobile.json')).default as Record<string, MobileRow>
+    return Object.fromEntries(
+      Object.entries(m).map(([fips, r]) => [
+        fips,
+        {
+          name: r.name,
+          value: r[field],
+          extra: r[`${field}v`] == null ? undefined : `In-vehicle: ${pct(r[`${field}v`]!)}`,
+        },
+      ]),
+    )
+  },
+})
+
 export const CHOROPLETHS: ChoroplethConfig[] = [
   acsLayer('hispanic', '🟧', 'Hispanic / Latino population', '% Hispanic / Latino', scaleOf([0, 5, 10, 20, 40, 60], ORANGES)),
   acsLayer('asian', '🟩', 'Asian population', '% Asian', scaleOf([0, 1, 2, 5, 10, 20], TEALS)),
@@ -68,6 +96,9 @@ export const CHOROPLETHS: ChoroplethConfig[] = [
     scaleOf([0, 45000, 60000, 75000, 95000, 125000], BLUES),
     (v) => `$${Math.round(v).toLocaleString('en-US')}`,
   ),
+  acsLayer('broadband', '📶', 'Broadband internet access', '% households with a broadband subscription', scaleOf([0, 70, 80, 85, 90, 95], PURPLES)),
+  mobileLayer('g4', '📡', 'Mobile 4G LTE coverage', '4G LTE'),
+  mobileLayer('g5', '📲', 'Mobile 5G coverage', '5G-NR (35/3 Mbps)'),
   {
     id: 'life',
     emoji: '⏳',
@@ -81,6 +112,26 @@ export const CHOROPLETHS: ChoroplethConfig[] = [
     load: async () => {
       const life = (await import('./data/life.json')).default as Record<string, { name: string; years: number }>
       return Object.fromEntries(Object.entries(life).map(([fips, r]) => [fips, { name: r.name, value: r.years }]))
+    },
+  },
+  {
+    id: 'ej',
+    emoji: '⚖️',
+    label: 'Environmental justice',
+    source: 'CDC EJI 2024',
+    legendTitle: 'Environmental Justice Index (0–100)',
+    note: 'CDC/ATSDR EJI 2024: cumulative environmental, social and health burden. Higher = greater burden. Tract percentiles averaged to counties, weighted by population.',
+    scale: scaleOf([0, 20, 40, 55, 70, 85], PINKS),
+    format: (v) => v.toFixed(0),
+    shapes: 'acs',
+    load: async () => {
+      const ej = (await import('./data/ej.json')).default as Record<string, { name: string; score: number; tracts: number }>
+      return Object.fromEntries(
+        Object.entries(ej).map(([fips, r]) => [
+          fips,
+          { name: r.name, value: r.score * 100, extra: `${r.tracts} census tract${r.tracts === 1 ? '' : 's'}` },
+        ]),
+      )
     },
   },
   {
