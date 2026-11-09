@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
 import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { LAYERS, distanceMeters, fetchAmenities, reverseGeocode, type Amenity, type AmenityType } from './amenities'
+import { LAYERS, distanceMeters, fetchAmenities, geocode, reverseGeocode, type Amenity, type AmenityType } from './amenities'
 import './App.css'
+import BlackPopLayer, { BlackPopLegend } from './BlackPopLayer'
+import Pres2020Layer, { Pres2020Legend } from './Pres2020Layer'
+import ViolentCrimeLayer, { ViolentCrimeLegend } from './ViolentCrimeLayer'
 
 type Pos = { lat: number; lon: number }
 const DEFAULT_POS: Pos = { lat: 40.7128, lon: -74.006 }
@@ -52,6 +55,28 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState<{ pos: Pos; radius: number; types: AmenityType[] } | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [address, setAddress] = useState('')
+  const [choropleth, setChoropleth] = useState<'blackpop' | 'pres2020' | 'violentcrime' | null>(null)
+  const [finding, setFinding] = useState(false)
+
+  const findAddress = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const q = address.trim()
+    if (!q) return
+    setFinding(true)
+    setError(null)
+    try {
+      const hit = await geocode(q)
+      if (!hit) return setError(`Couldn't find "${q}". Try a city, ZIP code or full address.`)
+      setPos(hit)
+      setLocated(false)
+      setPlaced(true)
+    } catch (err) {
+      setError(`Could not look up that location: ${(err as Error).message}`)
+    } finally {
+      setFinding(false)
+    }
+  }
 
   const locate = () => {
     if (!navigator.geolocation) return setError('Geolocation is not supported by this browser.')
@@ -108,6 +133,8 @@ export default function App() {
   const zoom = radius <= 1000 ? 15 : radius <= 3000 ? 13 : radius <= 5000 ? 12 : radius <= 10000 ? 11 : 10
 
   const reset = () => {
+    setAddress('')
+    setChoropleth(null)
     setPos(DEFAULT_POS)
     setLocated(false)
     setPlaced(false)
@@ -138,6 +165,16 @@ export default function App() {
         <p className="sos">Maintain situational awareness. In an emergency call 911.</p>
 
         <button onClick={locate}>📍 Use my location</button>
+        <form className="lookup" onSubmit={findAddress}>
+          <input
+            type="search"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Enter an address, city or ZIP"
+            aria-label="Location"
+          />
+          <button type="submit" disabled={!address.trim() || finding}>{finding ? '…' : 'Go'}</button>
+        </form>
         <p className="hint">{located ? 'Using your location.' : 'Or click the map to set a location.'}</p>
 
         <label className="field">
@@ -157,7 +194,22 @@ export default function App() {
               {l.emoji} <span>{l.label}</span> <small className="source">{l.source ?? 'OpenStreetMap'}</small> {query?.types.includes(l.type) && !loading && <small>({counts[l.type] ?? 0})</small>}
             </label>
           ))}
+          <label className="layer">
+            <input type="checkbox" data-layer="blackpop" checked={choropleth === 'blackpop'} onChange={(e) => setChoropleth(e.target.checked ? 'blackpop' : null)} />
+            🟪 <span>Black / African American population</span> <small className="source">Census ACS</small>
+          </label>
+          <label className="layer">
+            <input type="checkbox" data-layer="pres2020" checked={choropleth === 'pres2020'} onChange={(e) => setChoropleth(e.target.checked ? 'pres2020' : null)} />
+            🗳️ <span>2020 presidential results</span> <small className="source">County level</small>
+          </label>
+          <label className="layer">
+            <input type="checkbox" data-layer="violentcrime" checked={choropleth === 'violentcrime'} onChange={(e) => setChoropleth(e.target.checked ? 'violentcrime' : null)} />
+            🚨 <span>Violent crime rate</span> <small className="source">CHR 2022 · older data</small>
+          </label>
         </div>
+        {choropleth === 'blackpop' && <BlackPopLegend />}
+        {choropleth === 'pres2020' && <Pres2020Legend />}
+        {choropleth === 'violentcrime' && <ViolentCrimeLegend />}
 
         <button
           className="primary"
@@ -193,6 +245,9 @@ export default function App() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {choropleth === 'blackpop' && <BlackPopLayer />}
+        {choropleth === 'pres2020' && <Pres2020Layer />}
+        {choropleth === 'violentcrime' && <ViolentCrimeLayer />}
         <FlyTo pos={pos} zoom={zoom} />
         <ClickToSet onPick={(p) => { setPos(p); setLocated(false); setPlaced(true) }} />
         <Circle center={[pos.lat, pos.lon]} radius={radius} pathOptions={{ color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.1, weight: 2, dashArray: '6 8' }} />

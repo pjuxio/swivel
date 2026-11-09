@@ -99,3 +99,13 @@ export async function reverseGeocode(lat: number, lon: number, signal?: AbortSig
   const locality = address.city ?? address.town ?? address.village ?? address.suburb ?? address.hamlet ?? address.county
   return [locality, address.state].filter(Boolean).join(', ') || display_name || 'Unknown location'
 }
+
+export async function geocode(q: string, signal?: AbortSignal): Promise<{ lat: number; lon: number } | null> {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q=${encodeURIComponent(q)}`,
+    { signal },
+  )
+  if (!res.ok) throw new Error(`Geocoding error ${res.status}`)
+  const [hit]: { lat: string; lon: string }[] = await res.json()
+  return hit ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null
+}
