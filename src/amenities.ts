@@ -28,12 +28,13 @@ export interface AmenityLayer {
   load: () => Promise<Amenity[]>
 }
 
-export type LayerGroup = 'public_safety' | 'transportation' | 'social' | 'environmental'
+export type LayerGroup = 'public_safety' | 'transportation' | 'social' | 'demographics' | 'environmental'
 
 export const GROUPS: { id: LayerGroup; label: string }[] = [
   { id: 'public_safety', label: 'Public Safety' },
   { id: 'transportation', label: 'Transportation' },
   { id: 'social', label: 'Social' },
+  { id: 'demographics', label: 'Demographics' },
   { id: 'environmental', label: 'Environmental' },
 ]
 
@@ -53,7 +54,7 @@ export const LAYERS: AmenityLayer[] = [
   { type: 'hate_group', group: 'social', label: 'Hate & extremist groups', color: '#b71c1c', emoji: '⚠️', source: 'SPLC 2025', load: normalizedLoader('hate_group', splcUrl) },
   { type: 'data_center', group: 'environmental', label: 'Data centers', color: '#455a64', emoji: '🖥️', source: 'Open Data Center Data', load: loadDataCenters },
   { type: 'ghg_emitter', group: 'environmental', label: 'Greenhouse gas emitters', color: '#6a1b9a', emoji: '🏭', source: 'EPA GHGRP 2023', load: normalizedLoader('ghg_emitter', ghgrpUrl) },
-  { type: 'pfas_system', group: 'environmental', label: 'PFAS in drinking water', color: '#0097a7', emoji: '💧', source: 'EPA UCMR 5', load: normalizedLoader('pfas_system', pfasUrl) },
+  { type: 'pfas_system', group: 'environmental', label: 'PFAS water systems (sites)', color: '#0097a7', emoji: '💧', source: 'EPA UCMR 5', load: normalizedLoader('pfas_system', pfasUrl) },
   { type: 'superfund', group: 'environmental', label: 'Superfund sites', color: '#827717', emoji: '☣️', source: 'EPA NPL', load: loadSuperfundSites },
 ]
 

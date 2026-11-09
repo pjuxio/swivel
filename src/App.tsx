@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
 import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { GROUPS, LAYERS, distanceMeters, fetchAmenities, geocode, reverseGeocode, type Amenity, type AmenityType } from './amenities'
+import { GROUPS, type LayerGroup, LAYERS, distanceMeters, fetchAmenities, geocode, reverseGeocode, type Amenity, type AmenityType } from './amenities'
 import './App.css'
 import BlackPopLayer, { BlackPopLegend } from './BlackPopLayer'
 import Pres2020Layer, { Pres2020Legend } from './Pres2020Layer'
@@ -39,6 +39,31 @@ function FlyTo({ pos, zoom }: { pos: Pos; zoom: number }) {
 function ClickToSet({ onPick }: { onPick: (p: Pos) => void }) {
   useMapEvents({ click: (e) => onPick({ lat: e.latlng.lat, lon: e.latlng.lng }) })
   return null
+}
+
+const COUNTY_LAYERS: { id: string; group: LayerGroup; emoji: string; label: string; source: string }[] = [
+  { id: 'pres2020', group: 'social', emoji: '🗳️', label: '2020 presidential results', source: 'County level' },
+  { id: 'blackpop', group: 'demographics', emoji: '🟪', label: 'Black / African American population', source: 'Census ACS 2020–24' },
+  ...CHOROPLETHS.map((c) => ({
+    id: c.id,
+    group: ({
+      hispanic: 'demographics', asian: 'demographics', aian: 'demographics', foreign: 'demographics',
+      poverty: 'demographics', income: 'demographics', broadband: 'demographics', life: 'demographics',
+      mobile_g4: 'social', mobile_g5: 'social', ej: 'environmental', pfas: 'environmental', aqi: 'environmental',
+    } as Record<string, LayerGroup>)[c.id],
+    emoji: c.emoji,
+    label: c.label,
+    source: c.source,
+  })),
+  { id: 'violentcrime', group: 'public_safety', emoji: '🚨', label: 'Violent crime rate', source: 'CHR 2022 · older data' },
+]
+
+function Info({ text }: { text: string }) {
+  return (
+    <span className="info" tabIndex={0} role="img" aria-label={`Source: ${text}`} data-tip={`Source: ${text}`}>
+      ⓘ
+    </span>
+  )
 }
 
 function fmtDist(m: number) {
@@ -155,6 +180,7 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
+        <div className="sidebar-body">
         <p className="brand">SWIVEL</p>
         <h1>Know what's around you.</h1>
         {placed && (
@@ -188,65 +214,39 @@ export default function App() {
           </select>
         </label>
 
-        {GROUPS.map((g) => (
-          <details key={g.id} className="layers">
-            <summary className="group">
-              <span className="grp-label">{g.label}</span>
-              {LAYERS.filter((l) => l.group === g.id && enabled.includes(l.type)).length > 0 && (
-                <span className="badge">{LAYERS.filter((l) => l.group === g.id && enabled.includes(l.type)).length}</span>
-              )}
-            </summary>
-            {LAYERS.filter((l) => l.group === g.id).map((l) => (
-              <label key={l.type} className="layer">
-                <input type="checkbox" checked={enabled.includes(l.type)} onChange={() => toggle(l.type)} />
-                <span className="dot" style={{ background: l.color }} />
-                {l.emoji} <span>{l.label}</span> <small className="source">{l.source ?? 'OpenStreetMap'}</small> {query?.types.includes(l.type) && !loading && <small>({counts[l.type] ?? 0})</small>}
-              </label>
-            ))}
-          </details>
-        ))}
-
-        <details className="layers">
-          <summary className="group">
-            <span className="grp-label">County map layers</span>{choropleth && <span className="badge">1</span>}
-          </summary>
-          <label className="layer">
-            <input type="checkbox" data-layer="pres2020" checked={choropleth === 'pres2020'} onChange={(e) => setChoropleth(e.target.checked ? 'pres2020' : null)} />
-            🗳️ <span>2020 presidential results</span> <small className="source">County level</small>
-          </label>
-          <label className="layer">
-            <input type="checkbox" data-layer="blackpop" checked={choropleth === 'blackpop'} onChange={(e) => setChoropleth(e.target.checked ? 'blackpop' : null)} />
-            🟪 <span>Black / African American population</span> <small className="source">Census ACS 2020–24</small>
-          </label>
-          {CHOROPLETHS.map((c) => (
-            <Fragment key={c.id}>
-              <label className="layer">
-                <input type="checkbox" data-layer={c.id} checked={choropleth === c.id} onChange={(e) => setChoropleth(e.target.checked ? c.id : null)} />
-                {c.emoji} <span>{c.label}</span> <small className="source">{c.source}</small>
-              </label>
-              {c.id === 'income' && (
-                <label className="layer">
-                  <input type="checkbox" data-layer="violentcrime" checked={choropleth === 'violentcrime'} onChange={(e) => setChoropleth(e.target.checked ? 'violentcrime' : null)} />
-                  🚨 <span>Violent crime rate</span> <small className="source">CHR 2022 · older data</small>
+        {GROUPS.map((g) => {
+          const amenities = LAYERS.filter((l) => l.group === g.id)
+          const shading = COUNTY_LAYERS.filter((c) => c.group === g.id)
+          const active = amenities.filter((l) => enabled.includes(l.type)).length + shading.filter((c) => c.id === choropleth).length
+          return (
+            <details key={g.id} className="layers">
+              <summary className="group">
+                <span className="grp-label">{g.label}</span>
+                {active > 0 && <span className="badge">{active}</span>}
+              </summary>
+              {amenities.map((l) => (
+                <label key={l.type} className="layer">
+                  <input type="checkbox" checked={enabled.includes(l.type)} onChange={() => toggle(l.type)} />
+                  <span className="dot" style={{ background: l.color }} />
+                  {l.emoji} <span>{l.label}</span> {query?.types.includes(l.type) && !loading && <small>({counts[l.type] ?? 0})</small>}
+                  <Info text={l.source ?? 'OpenStreetMap'} />
                 </label>
-              )}
-            </Fragment>
-          ))}
-        </details>
+              ))}
+              {shading.map((c) => (
+                <label key={c.id} className="layer">
+                  <input type="checkbox" data-layer={c.id} checked={choropleth === c.id} onChange={(e) => setChoropleth(e.target.checked ? c.id : null)} />
+                  {c.emoji} <span>{c.label}</span> <Info text={`${c.source} · county map shading`} />
+                </label>
+              ))}
+            </details>
+          )
+        })}
+
         {choropleth === 'blackpop' && <BlackPopLegend />}
         {choropleth === 'pres2020' && <Pres2020Legend />}
         {choropleth === 'violentcrime' && <ViolentCrimeLegend />}
         {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLegend key={c.id} cfg={c} />)}
 
-        <button
-          className="primary"
-          disabled={!enabled.length || loading}
-          onClick={() => setQuery({ pos, radius, types: enabled })}
-        >
-          🔍 Search
-        </button>
-        <button onClick={reset}>↺ Reset</button>
-        {!enabled.length && <p className="hint">Select what you're looking for, then press Search.</p>}
 
         {loading && (
           <div className="status" role="status" aria-live="polite">
@@ -265,6 +265,21 @@ export default function App() {
           {!loading && query && !error && !data.length && <li className="empty">No results in this area.</li>}
         </ul>
         <p className="hint">Map © OpenStreetMap contributors. Listings come from federal datasets that may be out of date; verify before relying on them.</p>
+        </div>
+
+        <div className="sidebar-actions">
+          {!enabled.length && <p className="hint">Select what you're looking for, then press Search.</p>}
+          <div className="action-row">
+            <button
+              className="primary"
+              disabled={!enabled.length || loading}
+              onClick={() => setQuery({ pos, radius, types: enabled })}
+            >
+              🔍 Search
+            </button>
+            <button onClick={reset}>↺ Reset</button>
+          </div>
+        </div>
       </aside>
 
       <MapContainer center={[pos.lat, pos.lon]} zoom={zoom} className="map">

@@ -137,7 +137,7 @@ export const CHOROPLETHS: ChoroplethConfig[] = [
   {
     id: 'pfas',
     emoji: '💧',
-    label: 'PFAS in drinking water',
+    label: 'PFAS in drinking water (county)',
     source: 'EPA UCMR 5',
     legendTitle: 'Highest total PFAS in a water system (ppt)',
     note: 'EPA UCMR 5 (2023–2025) results. Each water system is assigned to the counties of the ZIP codes it serves, so locations are approximate. Gaps = no PFAS detected or not tested.',
