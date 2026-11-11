@@ -3,44 +3,57 @@ import type { FeatureCollection } from 'geojson'
 import type { Layer } from 'leaflet'
 import { GeoJSON, Pane } from 'react-leaflet'
 import { loadAcsShapes, loadCounties } from './countyShapes'
-import type { ChoroplethConfig, Row } from './choropleths'
-
-const colorOf = (cfg: ChoroplethConfig, v: number | null | undefined) =>
-  v == null ? 'transparent' : [...cfg.scale].reverse().find(([min]) => v >= min)![1]
+import { colorOf, type ChoroplethConfig, type Row } from './choropleths'
 
 export function ChoroplethLegend({ cfg }: { cfg: ChoroplethConfig }) {
-  const { scale, format } = cfg
+  const { scale, format, labels } = cfg
+  const text = (i: number) => {
+    if (labels) return labels[i]
+    const [min] = scale[i]
+    if (i === scale.length - 1) return `≥ ${format(min)}`
+    if (i === 0) return `< ${format(scale[1][0])}`
+    return `${format(min)} – ${format(scale[i + 1][0])}`
+  }
   return (
     <div className="legend">
       <strong>{cfg.legendTitle}</strong>
-      {[...scale].reverse().map(([min, color], i, all) => (
-        <div key={min}>
-          <span style={{ background: color }} />
-          {i === 0 ? `≥ ${format(min)}` : i === all.length - 1 ? `< ${format(all[i - 1][0])}` : `${format(min)} – ${format(all[i - 1][0])}`}
-        </div>
-      ))}
+      {scale
+        .map(([min, color], i) => (
+          <div key={min}>
+            <span style={{ background: color }} />
+            {text(i)}
+          </div>
+        ))
+        .reverse()}
       <small>{cfg.note}</small>
     </div>
   )
 }
 
-export default function ChoroplethLayer({ cfg }: { cfg: ChoroplethConfig }) {
+export default function ChoroplethLayer({ cfg, onError }: { cfg: ChoroplethConfig; onError: (message: string) => void }) {
   const [state, setState] = useState<{ shapes: FeatureCollection; rows: Record<string, Row> } | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([cfg.shapes === 'acs' ? loadAcsShapes() : loadCounties(), cfg.load()]).then(([shapes, rows]) => {
-      if (!cancelled) setState({ shapes, rows })
-    })
+    Promise.all([cfg.shapes === 'acs' ? loadAcsShapes() : loadCounties(), cfg.load()]).then(
+      ([shapes, rows]) => {
+        if (!cancelled) setState({ shapes, rows })
+      },
+      () => {
+        // Usually a stale tab asking for a chunk that a newer deploy replaced
+        if (!cancelled) onError(`Could not load "${cfg.label}". Reload the page and try again.`)
+      },
+    )
     return () => {
       cancelled = true
     }
-  }, [cfg])
+  }, [cfg, onError])
 
   if (!state) return null
   const { shapes, rows } = state
   const rowOf = (f?: { id?: string | number }) => rows[String(f?.id)]
   const pane = `choropleth-${cfg.id}`
+  const describe = cfg.describe ?? ((v: number) => `${cfg.label}: ${cfg.format(v)}`)
 
   return (
     <Pane name={pane} style={{ zIndex: 380 }}>
@@ -51,7 +64,7 @@ export default function ChoroplethLayer({ cfg }: { cfg: ChoroplethConfig }) {
           const r = rowOf(f)
           layer.bindTooltip(
             r
-              ? `<strong>${r.name}</strong><br>${cfg.label}: ${r.value == null ? 'N/A' : cfg.format(r.value)}${r.extra ? `<br><small>${r.extra}</small>` : ''}`
+              ? `<strong>${r.name}</strong><br>${r.value == null ? `${cfg.label}: N/A` : describe(r.value)}${r.extra ? `<br><small>${r.extra}</small>` : ''}`
               : '<strong>No data</strong>',
             { sticky: true },
           )

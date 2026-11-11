@@ -115,14 +115,24 @@ details.layers > .layer { margin-bottom: 0; }
 .where small { color: var(--muted); }
 
 .results { list-style: none; margin: 0; padding: 0; flex: none; }
-.results li {
-  display: flex; justify-content: space-between; gap: 8px; padding: 10px 8px;
-  border-bottom: 1px solid var(--border); cursor: pointer; font-size: 14px; border-radius: 8px;
+.results li { border-bottom: 1px solid var(--border); }
+.results li button {
+  display: flex; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 8px; text-align: left;
+  background: none; border: 0; border-radius: 8px; font-size: 14px; font-weight: normal; color: var(--text);
 }
-.results li:hover { background: var(--panel-2); }
-.results li.active { background: rgba(139, 92, 246, 0.18); box-shadow: inset 2px 0 0 var(--accent); }
-.results li span { color: var(--muted); white-space: nowrap; }
-.results li.empty { color: var(--muted); cursor: default; }
+.results li button:hover:not(:disabled) { background: var(--panel-2); border-color: transparent; }
+.results li button.active { background: rgba(139, 92, 246, 0.18); box-shadow: inset 2px 0 0 var(--accent); }
+.results li button span { color: var(--muted); white-space: nowrap; }
+.results li.empty { color: var(--muted); padding: 10px 8px; font-size: 14px; }
+.notice {
+  margin: 0; padding: 8px 10px; font-size: 13px; color: #fcd34d;
+  background: rgba(252, 211, 77, 0.08); border: 1px solid rgba(252, 211, 77, 0.35); border-radius: 10px;
+}
+.layer small.truncated { color: #fcd34d; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 
 .map-wrap { position: relative; flex: 1; min-width: 0; height: 100%; }
 .map { width: 100%; height: 100%; background: var(--bg); }
@@ -151,6 +161,15 @@ details.layers > .layer { margin-bottom: 0; }
 }
 .leaflet-popup-content-wrapper { border-radius: 12px; }
 .leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+.popup { display: flex; flex-direction: column; gap: 2px; }
+.popup-title { font-size: 14px; }
+.popup-meta { color: var(--muted); margin-bottom: 4px; }
+.popup-links { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+.cluster {
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: rgba(139, 92, 246, 0.85); color: #fff; font-weight: 700; font-size: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 0 0 5px rgba(139, 92, 246, 0.25), 0 0 14px rgba(0, 0, 0, 0.6);
+}
 .pin {
   width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.85);
   display: flex; align-items: center; justify-content: center; font-size: 15px;

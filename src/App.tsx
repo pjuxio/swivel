@@ -1,32 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
-import L from 'leaflet'
-import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Circle, CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { GROUPS, type LayerGroup, LAYERS, distanceMeters, fetchAmenities, geocode, reverseGeocode, type Amenity, type AmenityType } from './amenities'
+import { GROUPS, LAYERS, fetchAmenities, geocode, reverseGeocode, type Amenity, type AmenityResults, type AmenityType } from './amenities'
 import './App.css'
-import BlackPopLayer, { BlackPopLegend } from './BlackPopLayer'
-import PresidentialLayer, { PresidentialLegend, type PresYear } from './PresidentialLayer'
-import ViolentCrimeLayer, { ViolentCrimeLegend } from './ViolentCrimeLayer'
+import AmenityMarkers, { type Selection } from './AmenityMarkers'
 import ChoroplethLayer, { ChoroplethLegend } from './ChoroplethLayer'
 import { CHOROPLETHS } from './choropleths'
+import { fmtCount, fmtDist } from './format'
 
 type Pos = { lat: number; lon: number }
+type Query = { pos: Pos; radius: number; types: AmenityType[] }
 const DEFAULT_POS: Pos = { lat: 40.7128, lon: -74.006 }
 const RADII = [1000, 3000, 5000, 10000, 25000, 100000]
 const layerOf = (t: AmenityType) => LAYERS.find((l) => l.type === t)!
-
-const ICONS = Object.fromEntries(
-  LAYERS.map((l) => [
-    l.type,
-    L.divIcon({
-      className: '',
-      html: `<div class="pin" style="background:${l.color}">${l.emoji}</div>`,
-      iconSize: [30, 30],
-      iconAnchor: [15, 15],
-      popupAnchor: [0, -15],
-    }),
-  ]),
-) as Record<AmenityType, L.DivIcon>
 
 function FlyTo({ pos, zoom }: { pos: Pos; zoom: number }) {
   const map = useMap()
@@ -41,27 +27,6 @@ function ClickToSet({ onPick }: { onPick: (p: Pos) => void }) {
   return null
 }
 
-const PRES_YEARS: PresYear[] = [2016, 2020, 2024]
-
-const COUNTY_LAYERS: { id: string; group: LayerGroup; emoji: string; label: string; source: string }[] = [
-  { id: 'pres2024', group: 'social', emoji: '🗳️', label: '2024 presidential results', source: 'County level' },
-  { id: 'pres2020', group: 'social', emoji: '🗳️', label: '2020 presidential results', source: 'County level' },
-  { id: 'pres2016', group: 'social', emoji: '🗳️', label: '2016 presidential results', source: 'County level' },
-  { id: 'blackpop', group: 'demographics', emoji: '🟪', label: 'Black / African American population', source: 'Census ACS 2020–24' },
-  ...CHOROPLETHS.map((c) => ({
-    id: c.id,
-    group: ({
-      hispanic: 'demographics', asian: 'demographics', aian: 'demographics', foreign: 'demographics',
-      poverty: 'demographics', income: 'demographics', broadband: 'demographics', life: 'demographics',
-      mobile_g4: 'social', mobile_g5: 'social', pres_shift: 'social', hatecrime: 'social', ej: 'environmental', lead: 'environmental', pfas: 'environmental', aqi: 'environmental',
-    } as Record<string, LayerGroup>)[c.id],
-    emoji: c.emoji,
-    label: c.label,
-    source: c.source,
-  })),
-  { id: 'violentcrime', group: 'public_safety', emoji: '🚨', label: 'Violent crime rate', source: 'CHR 2022 · older data' },
-]
-
 function Info({ text }: { text: string }) {
   return (
     <span className="info" tabIndex={0} role="img" aria-label={`Source: ${text}`} data-tip={`Source: ${text}`}>
@@ -70,26 +35,42 @@ function Info({ text }: { text: string }) {
   )
 }
 
-function fmtDist(m: number) {
-  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`
+function LayerCount({ count }: { count?: { shown: number; total: number } }) {
+  if (!count) return <small>(0)</small>
+  if (count.shown >= count.total) return <small>({fmtCount(count.total)})</small>
+  return (
+    <small className="truncated" title={`Showing the nearest ${fmtCount(count.shown)} of ${fmtCount(count.total)}`}>
+      ({fmtCount(count.shown)} of {fmtCount(count.total)})
+    </small>
+  )
 }
 
 export default function App() {
   const [pos, setPos] = useState<Pos>(DEFAULT_POS)
   const [located, setLocated] = useState(false)
   const [placed, setPlaced] = useState(false)
-  const [placeName, setPlaceName] = useState<string | null>(null)
+  const [place, setPlace] = useState<{ key: string; name: string } | null>(null)
   const [radius, setRadius] = useState(5000)
   const [enabled, setEnabled] = useState<AmenityType[]>([])
-  const [data, setData] = useState<Amenity[]>([])
+  const [results, setResults] = useState<AmenityResults | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [query, setQuery] = useState<{ pos: Pos; radius: number; types: AmenityType[] } | null>(null)
-  const [selected, setSelected] = useState<string | null>(null)
+  const [query, setQuery] = useState<Query | null>(null)
+  const [selected, setSelected] = useState<Selection>(null)
   const [address, setAddress] = useState('')
   const [legendOpen, setLegendOpen] = useState(true)
   const [choropleth, setChoropleth] = useState<string | null>(null)
   const [finding, setFinding] = useState(false)
+  const searchCtrl = useRef<AbortController | null>(null)
+  const rows = useRef(new Map<string, HTMLButtonElement>())
+
+  const data: Amenity[] = useMemo(() => results?.amenities ?? [], [results])
+
+  const pick = (p: Pos, fromDevice = false) => {
+    setPos(p)
+    setLocated(fromDevice)
+    setPlaced(true)
+  }
 
   const findAddress = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,9 +81,7 @@ export default function App() {
     try {
       const hit = await geocode(q)
       if (!hit) return setError(`Couldn't find "${q}". Try a city, ZIP code or full address.`)
-      setPos(hit)
-      setLocated(false)
-      setPlaced(true)
+      pick(hit)
     } catch (err) {
       setError(`Could not look up that location: ${(err as Error).message}`)
     } finally {
@@ -110,70 +89,100 @@ export default function App() {
     }
   }
 
+  // Location is only requested when the user asks for it
   const locate = () => {
     if (!navigator.geolocation) return setError('Geolocation is not supported by this browser.')
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        setPos({ lat: p.coords.latitude, lon: p.coords.longitude })
-        setLocated(true)
-        setPlaced(true)
+        pick({ lat: p.coords.latitude, lon: p.coords.longitude }, true)
         setError(null)
       },
-      () => setError('Could not get your location. Click the map to set it manually.'),
+      () => setError('Could not get your location. Click the map or enter an address instead.'),
       { enableHighAccuracy: true, timeout: 10000 },
     )
   }
 
-  useEffect(locate, [])
-
   // Reverse-geocode the chosen point for the heading
+  const posKey = `${pos.lat},${pos.lon}`
   useEffect(() => {
     if (!placed) return
     const ctrl = new AbortController()
-    setPlaceName(null)
-    reverseGeocode(pos.lat, pos.lon, ctrl.signal).then(setPlaceName, () => {})
+    reverseGeocode(pos.lat, pos.lon, ctrl.signal).then(
+      (name) => setPlace({ key: posKey, name }),
+      () => {
+        if (!ctrl.signal.aborted) setPlace({ key: posKey, name: 'Selected location' })
+      },
+    )
     return () => ctrl.abort()
-  }, [pos, placed])
+  }, [pos, posKey, placed])
+  const placeName = place?.key === posKey ? place.name : null
 
-  // Searches run only when the user presses the Search button
-  useEffect(() => {
-    if (!query) return
+  const search = () => {
+    searchCtrl.current?.abort()
     const ctrl = new AbortController()
+    searchCtrl.current = ctrl
+    const q: Query = { pos, radius, types: enabled }
+    setQuery(q)
     setLoading(true)
     setError(null)
     setSelected(null)
-    fetchAmenities(query.pos.lat, query.pos.lon, query.radius, query.types, ctrl.signal)
-      .then(({ amenities, errors }) => {
-        setData(amenities)
-        const failed = Object.keys(errors) as AmenityType[]
+    fetchAmenities(q.pos.lat, q.pos.lon, q.radius, q.types, ctrl.signal)
+      .then((r) => {
+        if (ctrl.signal.aborted) return
+        setResults(r)
+        const failed = Object.keys(r.errors) as AmenityType[]
         if (failed.length) setError(`Could not load: ${failed.map((t) => layerOf(t).label).join(', ')}.`)
-        setLoading(false)
       })
       .catch((e: Error) => {
-        if (e.name === 'AbortError') return
-        setData([])
+        if (ctrl.signal.aborted) return
+        setResults(null)
         setError(`Could not load amenities: ${e.message}`)
-        setLoading(false)
       })
-    return () => ctrl.abort()
-  }, [query])
+      .finally(() => {
+        if (searchCtrl.current === ctrl) {
+          searchCtrl.current = null
+          setLoading(false)
+        }
+      })
+  }
 
-  const origin = query?.pos ?? pos
-  const counts = useMemo(() => {
-    const c: Partial<Record<AmenityType, number>> = {}
-    data.forEach((a) => (c[a.type] = (c[a.type] ?? 0) + 1))
-    return c
-  }, [data])
-  const zoom = radius <= 1000 ? 15 : radius <= 3000 ? 13 : radius <= 5000 ? 12 : radius <= 10000 ? 11 : radius <= 25000 ? 10 : 8
+  useEffect(() => () => searchCtrl.current?.abort(), [])
 
   const reset = () => {
+    searchCtrl.current?.abort()
+    searchCtrl.current = null
+    setLoading(false)
     setChoropleth(null)
     setEnabled([])
     setQuery(null)
-    setData([])
+    setResults(null)
     setSelected(null)
     setError(null)
   }
+
+  // A marker picked on the map: bring its row into view
+  useEffect(() => {
+    if (selected?.from === 'map') rows.current.get(selected.id)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selected])
+
+  const selectFromMap = useCallback((id: string) => setSelected({ id, from: 'map' }), [])
+  const onLayerError = useCallback((message: string) => {
+    setError(message)
+    setChoropleth(null)
+  }, [])
+
+  const truncated = useMemo(
+    () =>
+      query?.types.flatMap((t) => {
+        const c = results?.counts[t]
+        return c && c.shown < c.total ? [{ type: t, ...c }] : []
+      }) ?? [],
+    [query, results],
+  )
+
+  const zoom = radius <= 1000 ? 15 : radius <= 3000 ? 13 : radius <= 5000 ? 12 : radius <= 10000 ? 11 : radius <= 25000 ? 10 : 8
+  const origin = query?.pos ?? pos
+  const activeChoropleth = CHOROPLETHS.find((c) => c.id === choropleth)
 
   const toggle = (t: AmenityType) =>
     setEnabled((e) => (e.includes(t) ? e.filter((x) => x !== t) : [...e, t]))
@@ -204,7 +213,9 @@ export default function App() {
           />
           <button type="submit" disabled={!address.trim() || finding}>{finding ? '…' : 'Go'}</button>
         </form>
-        <p className="hint">{located ? 'Using your location.' : 'Or click the map to set a location.'}</p>
+        <p className="hint">
+          {located ? 'Using your location.' : placed ? 'Click the map to move the point.' : 'Use your location, enter an address, or click the map.'}
+        </p>
 
         <label className="field">
           Radius
@@ -217,7 +228,7 @@ export default function App() {
 
         {GROUPS.map((g) => {
           const amenities = LAYERS.filter((l) => l.group === g.id)
-          const shading = COUNTY_LAYERS.filter((c) => c.group === g.id)
+          const shading = CHOROPLETHS.filter((c) => c.group === g.id)
           const active = amenities.filter((l) => enabled.includes(l.type)).length + shading.filter((c) => c.id === choropleth).length
           return (
             <details key={g.id} className="layers">
@@ -229,8 +240,8 @@ export default function App() {
                 <label key={l.type} className="layer">
                   <input type="checkbox" checked={enabled.includes(l.type)} onChange={() => toggle(l.type)} />
                   <span className="dot" style={{ background: l.color }} />
-                  {l.emoji} <span>{l.label}</span> {query?.types.includes(l.type) && !loading && <small>({counts[l.type] ?? 0})</small>}
-                  <Info text={l.source ?? 'OpenStreetMap'} />
+                  {l.emoji} <span>{l.label}</span> {query?.types.includes(l.type) && results && <LayerCount count={results.counts[l.type]} />}
+                  <Info text={l.source} />
                 </label>
               ))}
               {shading.map((c) => (
@@ -243,35 +254,61 @@ export default function App() {
           )
         })}
 
+        <div role="status" aria-live="polite">
+          {loading && (
+            <div className="status">
+              <span className="spinner" /> Searching nearby…
+            </div>
+          )}
+          {!loading && results && query && (
+            <span className="sr-only">{`${fmtCount(data.length)} result${data.length === 1 ? '' : 's'} found.`}</span>
+          )}
+        </div>
+        <div role="alert">{error && <p className="error">{error}</p>}</div>
 
-
-        {loading && (
-          <div className="status" role="status" aria-live="polite">
-            <span className="spinner" /> Searching nearby…
-          </div>
+        {!loading && truncated.length > 0 && (
+          <p className="notice">
+            Only the nearest results are shown for{' '}
+            {truncated.map((t, i) => (
+              <span key={t.type}>
+                {i > 0 && (i === truncated.length - 1 ? ' and ' : ', ')}
+                {layerOf(t.type).label} ({fmtCount(t.shown)} of {fmtCount(t.total)})
+              </span>
+            ))}
+            . Use a smaller radius to see everything.
+          </p>
         )}
-        {error && <p className="error">{error}</p>}
 
-        <ul className="results">
+        <ul className="results" aria-label="Results">
           {data.map((a) => (
-            <li key={a.id} className={a.id === selected ? 'active' : ''} onClick={() => setSelected(a.id)}>
-              <strong>{layerOf(a.type).emoji} {a.name}</strong>
-              <span>{fmtDist(distanceMeters(origin.lat, origin.lon, a.lat, a.lon))}</span>
+            <li key={a.id}>
+              <button
+                type="button"
+                ref={(el) => {
+                  if (el) rows.current.set(a.id, el)
+                  else rows.current.delete(a.id)
+                }}
+                className={a.id === selected?.id ? 'active' : ''}
+                aria-current={a.id === selected?.id ? 'true' : undefined}
+                onClick={() => setSelected({ id: a.id, from: 'list' })}
+              >
+                <strong>{layerOf(a.type).emoji} {a.name}</strong>
+                <span>{fmtDist(a.distance)}</span>
+              </button>
             </li>
           ))}
-          {!loading && query && !error && !data.length && <li className="empty">No results in this area.</li>}
+          {!loading && query && results && !error && !data.length && <li className="empty">No results in this area.</li>}
         </ul>
-        <p className="hint">Map © OpenStreetMap contributors. Listings come from federal datasets that may be out of date; verify before relying on them.</p>
+        <p className="hint">
+          Map © OpenStreetMap contributors. Place names by Nominatim. Listings come from public datasets that may be out of
+          date; verify before relying on them.
+        </p>
         </div>
 
         <div className="sidebar-actions">
           {!enabled.length && <p className="hint">Select what you're looking for, then press Search.</p>}
           <div className="action-row">
-            <button
-              className="primary"
-              disabled={!enabled.length || loading}
-              onClick={() => setQuery({ pos, radius, types: enabled })}
-            >
+            <button className="primary" disabled={!enabled.length || loading} onClick={search}>
               🔍 Search
             </button>
             <button onClick={reset}>↺ Reset</button>
@@ -285,49 +322,15 @@ export default function App() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {choropleth === 'blackpop' && <BlackPopLayer />}
-        {PRES_YEARS.filter((y) => choropleth === `pres${y}`).map((y) => <PresidentialLayer key={y} year={y} />)}
-        {choropleth === 'violentcrime' && <ViolentCrimeLayer />}
-        {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLayer key={c.id} cfg={c} />)}
+        {activeChoropleth && <ChoroplethLayer key={activeChoropleth.id} cfg={activeChoropleth} onError={onLayerError} />}
         <FlyTo pos={pos} zoom={zoom} />
-        <ClickToSet onPick={(p) => { setPos(p); setLocated(false); setPlaced(true) }} />
+        <ClickToSet onPick={(p) => pick(p)} />
         <Circle center={[pos.lat, pos.lon]} radius={radius} pathOptions={{ color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.1, weight: 2, dashArray: '6 8' }} />
         <CircleMarker center={[pos.lat, pos.lon]} radius={16} pathOptions={{ stroke: false, fillColor: '#22d3ee', fillOpacity: 0.25 }} />
         <CircleMarker center={[pos.lat, pos.lon]} radius={8} pathOptions={{ color: '#fff', fillColor: '#22d3ee', fillOpacity: 1, weight: 3 }} />
-        {data.map((a) => (
-          <Marker
-            key={a.id}
-            position={[a.lat, a.lon]}
-            icon={ICONS[a.type]}
-            eventHandlers={{ click: () => setSelected(a.id) }}
-          >
-            <Popup>
-              <strong>{a.name}</strong>
-              <br />
-              {layerOf(a.type).label} · {fmtDist(distanceMeters(origin.lat, origin.lon, a.lat, a.lon))}
-              {a.address && <><br />{a.address}</>}
-              {a.details?.map((d) => (
-                <div key={d.label}><strong>{d.label}:</strong> {d.value}</div>
-              ))}
-              {a.openingHours && <><br />Hours: {a.openingHours}</>}
-              {a.phone && <><br /><a href={`tel:${a.phone}`}>{a.phone}</a></>}
-              {a.website && /^https?:\/\//.test(a.website) && <><br /><a href={a.website} target="_blank" rel="noreferrer">Website</a></>}
-              {a.links?.slice(0, 3).map((l) => (
-                <div key={l.url}><a href={l.url} target="_blank" rel="noreferrer">{l.title.slice(0, 60)}</a></div>
-              ))}
-              <br />
-              <a
-                href={`https://www.openstreetmap.org/directions?to=${a.lat},${a.lon}&from=${origin.lat},${origin.lon}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Directions
-              </a>
-            </Popup>
-          </Marker>
-        ))}
+        <AmenityMarkers items={data} origin={origin} selected={selected} onSelect={selectFromMap} />
       </MapContainer>
-      {choropleth && (
+      {activeChoropleth && (
         <div className="map-legend">
           <button
             type="button"
@@ -338,14 +341,7 @@ export default function App() {
             <span>Legend</span>
             <span className="legend-caret" aria-hidden="true" />
           </button>
-          {legendOpen && (
-            <>
-              {choropleth === 'blackpop' && <BlackPopLegend />}
-              {PRES_YEARS.filter((y) => choropleth === `pres${y}`).map((y) => <PresidentialLegend key={y} year={y} />)}
-              {choropleth === 'violentcrime' && <ViolentCrimeLegend />}
-              {CHOROPLETHS.filter((c) => c.id === choropleth).map((c) => <ChoroplethLegend key={c.id} cfg={c} />)}
-            </>
-          )}
+          {legendOpen && <ChoroplethLegend cfg={activeChoropleth} />}
         </div>
       )}
       </div>

@@ -22,6 +22,15 @@ STATUS = {
     0: "Don't know", 1: "Unlikely", 2: "Possible", 3: "Probable", 4: "Surely",
     8: "Unlikely / always biracial", 9: "Black town or township",
 }
+# The other statuses are places the database judged not to be sundown towns, so they are left out
+KEEP = {"Possible", "Probable", "Surely"}
+
+
+def in_us(lon, lat):
+    """Rough boxes around the states and territories; catches 0,0 and points geocoded to the wrong country."""
+    boxes = [(24.3, 49.5, -125, -66.9), (51, 71.6, -180, -129.9), (51, 53, 172, 180), (18.8, 22.4, -160.6, -154.7),
+             (17.6, 18.6, -67.4, -64.5), (13.2, 20.6, 144.5, 146.1), (-14.6, -11, -171.2, -168.1)]
+    return any(a <= lat <= b and c <= lon <= d for a, b, c, d in boxes)
 
 
 def get(offset):
@@ -46,6 +55,9 @@ def main():
         if g.get("type") != "Point" or p.get("name") is None:
             continue
         status = STATUS.get(p.get("confirmed") or 0, "Don't know")
+        lon, lat = g["coordinates"][:2]
+        if status not in KEEP or not in_us(lon, lat):
+            continue
         town = p["name"].strip()
         state = (p.get("state") or "").strip()
         out.append({
@@ -53,11 +65,10 @@ def main():
             "properties": {
                 "id": f"sundown/{f['id']}",
                 "name": f"{town}, {state} ({status})" if state else f"{town} ({status})",  # status shows in the results list
-                "address": f"Sundown town? {status}",
                 "website": p.get("permalink"),
                 "details": [["Sundown town?", status], ["Source", "Tougaloo College Sundown Towns Database"]],
             },
-            "geometry": {"type": "Point", "coordinates": [round(g["coordinates"][0], 5), round(g["coordinates"][1], 5)]},
+            "geometry": {"type": "Point", "coordinates": [round(lon, 5), round(lat, 5)]},
         })
     OUT.write_text(json.dumps({"type": "FeatureCollection", "features": out}, separators=(",", ":")))
     counts = {}

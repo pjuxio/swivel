@@ -1,0 +1,2 @@
+# Python packages needed by the data build scripts (everything else is standard library)
+openpyxl>=3.1  # build_ghgrp.py reads the EPA GHGRP spreadsheet

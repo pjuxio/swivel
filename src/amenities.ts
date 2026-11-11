@@ -52,68 +52,53 @@ export interface Amenity {
   name: string
   lat: number
   lon: number
+  // Meters from the search point, computed by the server
+  distance: number
   address?: string
   phone?: string
   website?: string
-  openingHours?: string
   details?: { label: string; value: string }[]
   links?: { title: string; url: string }[]
 }
 
-export function distanceMeters(aLat: number, aLon: number, bLat: number, bLon: number): number {
-  const R = 6371000
-  const rad = (d: number) => (d * Math.PI) / 180
-  const dLat = rad(bLat - aLat)
-  const dLon = rad(bLon - aLon)
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLon / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(h))
-}
-
 export interface AmenityResults {
   amenities: Amenity[]
+  // Per layer: how many came back and how many were in the radius before the server's cap
+  counts: Partial<Record<AmenityType, { shown: number; total: number }>>
   // Layers the server could not load, keyed by type
   errors: Partial<Record<AmenityType, string>>
 }
 
-// Searches are served by our own API (server/index.js)
-export async function fetchAmenities(
-  lat: number,
-  lon: number,
-  radiusM: number,
-  types: AmenityType[],
-  signal?: AbortSignal,
-): Promise<AmenityResults> {
-  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), radius: String(radiusM), types: types.join(',') })
-  const res = await fetch(`/api/amenities?${params}`, { signal })
+async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
   if (!res.ok) {
-    const body = await res.json().catch(() => null)
-    throw new Error(body?.error ?? `Search failed (${res.status})`)
+    const json = await res.json().catch(() => null)
+    throw new Error(json?.error ?? `Request failed (${res.status})`)
   }
   return res.json()
 }
 
-interface NominatimResult {
-  display_name?: string
-  address?: Record<string, string>
+// Searches are served by our own API (server/app.js); the point travels in the body, not the URL
+export function fetchAmenities(
+  lat: number,
+  lon: number,
+  radius: number,
+  types: AmenityType[],
+  signal?: AbortSignal,
+): Promise<AmenityResults> {
+  return post('/api/amenities', { lat, lon, radius, types }, signal)
 }
 
+// Geocoding is proxied by the server, which rounds the point before asking Nominatim
 export async function reverseGeocode(lat: number, lon: number, signal?: AbortSignal): Promise<string> {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&lat=${lat}&lon=${lon}`,
-    { signal },
-  )
-  if (!res.ok) throw new Error(`Geocoding error ${res.status}`)
-  const { address = {}, display_name }: NominatimResult = await res.json()
-  const locality = address.city ?? address.town ?? address.village ?? address.suburb ?? address.hamlet ?? address.county
-  return [locality, address.state].filter(Boolean).join(', ') || display_name || 'Unknown location'
+  return (await post<{ name: string }>('/api/reverse', { lat, lon }, signal)).name
 }
 
 export async function geocode(q: string, signal?: AbortSignal): Promise<{ lat: number; lon: number } | null> {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q=${encodeURIComponent(q)}`,
-    { signal },
-  )
-  if (!res.ok) throw new Error(`Geocoding error ${res.status}`)
-  const [hit]: { lat: string; lon: string }[] = await res.json()
-  return hit ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null
+  return (await post<{ hit: { lat: number; lon: number } | null }>('/api/geocode', { q }, signal)).hit
 }

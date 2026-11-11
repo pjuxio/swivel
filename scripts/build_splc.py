@@ -73,7 +73,7 @@ for i, r in enumerate(csv.DictReader(open(ROOT / "splc_hate_data_2025.csv", enco
         continue
     st = STATES[r["state_name"]]
     city = re.sub(r"^(town|city|village) of\s+", "", r["city_name"].strip(), flags=re.I)
-    city = ALIASES.get((st_of := STATES[r["state_name"]], city), city)
+    city = ALIASES.get((st, city), city)
     key = (st, base_name(city))
     hit = max(places[key])[1:] if key in places else None
     precision = "city"

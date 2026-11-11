@@ -18,14 +18,46 @@ npm run dev                  # API on :3001 + Vite on :5173 (proxies /api to the
 
 Production: `npm start` builds the app and serves it plus `/api` on `PORT` (default 3001).
 
-- `GET /api/amenities?lat=&lon=&radius=<meters, max 200000>&types=hospital,tri,...` returns
-  `{ amenities, errors }`, nearest first, up to 300 per type.
-- Static point datasets live in `server/data/` (built by `scripts/`) and are loaded into memory on first use.
+## Checks
+
+```sh
+npm run lint    # oxlint
+npm run build   # type-checks the app, the server (JSDoc + checkJs) and builds the front end
+npm test        # node:test suites in test/: API behaviour and validation of every bundled dataset
+npm run check   # all three; CI (.github/workflows/ci.yml) runs the same steps
+```
+
+## API
+
+All endpoints except `/api/health` are `POST` with a JSON body, so coordinates stay out of URLs and access logs.
+
+- `POST /api/amenities` with `{ lat, lon, radius, types }` (`radius` in meters, max 200000; `types` an array such as
+  `["hospital", "tri"]`) returns `{ amenities, counts, errors }`. Amenities are nearest first, each with a `distance`
+  in meters, and at most 500 per type. `counts[type]` is `{ shown, total }`; `total > shown` means the layer was cut.
+- `POST /api/geocode` with `{ q }` returns `{ hit: { lat, lon } | null }`.
+- `POST /api/reverse` with `{ lat, lon }` returns `{ name }`.
+- `GET /api/health` returns `{ ok: true }` and is always open (use it for uptime checks).
+
+Notes:
+
+- Static point datasets live in `server/data/` (built by `scripts/`) and are loaded into memory on first use. The
+  loader drops points outside the US and its territories, repairs website links that lack `https://`, and keeps only
+  sundown-town records with a status of Possible, Probable or Surely.
 - EV charging stations are fetched live from the DOE/NLR Alternative Fuels API with `NLR_API_KEY`
   (falls back to the shared `DEMO_KEY`, which is heavily rate limited) and cached for 10 minutes.
-- County shading layers use the small JSON files in `src/data/` and stay in the browser bundle.
+- Geocoding is proxied to Nominatim, which then sees only the server, not the user. Reverse lookups are rounded to
+  about 1 km, responses are cached for a day, and requests are spaced at least a second apart, as Nominatim's usage
+  policy requires. Set `NOMINATIM_EMAIL` to identify the app to them.
+- County shading layers use the small JSON files in `src/data/` and stay in the browser bundle. Their configuration
+  (scales, legends, notes) lives in [src/choropleths.ts](src/choropleths.ts).
+- The browser only asks for the device location when "Use my location" is pressed.
 
----
+## Data scripts
+
+The Python scripts in `scripts/` rebuild the files in `server/data/` and `src/data/`. Most need only the standard
+library; install the rest with `pip install -r scripts/requirements.txt`. `data_centers.geojson` and
+`superfund_sites.geojson` were downloaded by hand and have no build script. `npm test` validates every point dataset
+(US coordinates, unique ids, names, http(s) links), so run it after a rebuild.
 
 ## Deploying to Heroku
 
@@ -39,39 +71,13 @@ git push heroku main                                # or connect the GitHub repo
 ```
 
 - `Procfile` runs `npm run server`; the `heroku-postbuild` script builds the front end; `engines` pins Node 22.
+- On Heroku the server trusts the router's `X-Forwarded-*` headers, redirects HTTP to HTTPS and sends HSTS.
+- Responses are gzip-compressed; hashed files under `/assets` are cached for a year and everything else is revalidated.
+- Security headers (CSP, `X-Content-Type-Options`, frame blocking) are set by `helmet`. Map tiles are the only
+  third-party resource the page loads.
+- With `APP_PASSWORD` set, 10 wrong passwords from one IP lock it out for 15 minutes.
 - With every layer loaded the server used about 280 MB of memory, so the 512 MB dynos have headroom but little to spare.
-- `GET /api/health` is always open (use it for uptime checks); everything else requires the password when `APP_PASSWORD` is set.
-- Any host that runs a Node server works the same way (build with `npm ci && npm run build`, start with `npm run server`).
 
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Other hosts work the same way (build with `npm ci && npm run build`, start with `npm run server`). Behind a reverse
+proxy set `TRUST_PROXY` to the number of proxy hops so client IPs and HTTPS are detected correctly; without a proxy
+leave it unset, so clients can't spoof `X-Forwarded-For` to dodge the rate limits. See [.env.example](.env.example).
