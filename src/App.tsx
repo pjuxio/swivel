@@ -7,12 +7,34 @@ import AmenityMarkers, { type Selection } from './AmenityMarkers'
 import ChoroplethLayer, { ChoroplethLegend } from './ChoroplethLayer'
 import { CHOROPLETHS } from './choropleths'
 import { fmtCount, fmtDist } from './format'
+import Landing from './Landing'
+import SupportLink from './SupportLink'
 
 type Pos = { lat: number; lon: number }
 type Query = { pos: Pos; radius: number; types: AmenityType[] }
 const DEFAULT_POS: Pos = { lat: 40.7128, lon: -74.006 }
 const RADII = [1000, 3000, 5000, 10000, 25000, 100000]
 const layerOf = (t: AmenityType) => LAYERS.find((l) => l.type === t)!
+
+const SPOT_KEY = 'swivel:spot'
+type Spot = Pos & { located: boolean }
+// Per-tab, so a refresh returns to the same point on the map but a fresh visit sees the landing page
+const readSpot = (): Spot | null => {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(SPOT_KEY) ?? 'null')
+    return Number.isFinite(s?.lat) && Number.isFinite(s?.lon) ? { lat: s.lat, lon: s.lon, located: !!s.located } : null
+  } catch {
+    return null
+  }
+}
+const writeSpot = (spot: Spot | null) => {
+  try {
+    if (spot) sessionStorage.setItem(SPOT_KEY, JSON.stringify(spot))
+    else sessionStorage.removeItem(SPOT_KEY)
+  } catch {
+    // Storage can be blocked; the app still works, it just shows the landing page again on refresh
+  }
+}
 
 function FlyTo({ pos, zoom }: { pos: Pos; zoom: number }) {
   const map = useMap()
@@ -22,8 +44,8 @@ function FlyTo({ pos, zoom }: { pos: Pos; zoom: number }) {
   return null
 }
 
-function ClickToSet({ onPick }: { onPick: (p: Pos) => void }) {
-  useMapEvents({ click: (e) => onPick({ lat: e.latlng.lat, lon: e.latlng.lng }) })
+function DoubleClickToSet({ onPick, onTap }: { onPick: (p: Pos) => void; onTap: () => void }) {
+  useMapEvents({ dblclick: (e) => onPick({ lat: e.latlng.lat, lon: e.latlng.lng }), click: onTap })
   return null
 }
 
@@ -46,9 +68,12 @@ function LayerCount({ count }: { count?: { shown: number; total: number } }) {
 }
 
 export default function App() {
-  const [pos, setPos] = useState<Pos>(DEFAULT_POS)
-  const [located, setLocated] = useState(false)
-  const [placed, setPlaced] = useState(false)
+  const [saved] = useState(readSpot)
+  const [started, setStarted] = useState(saved !== null)
+  const [pos, setPos] = useState<Pos>(saved ? { lat: saved.lat, lon: saved.lon } : DEFAULT_POS)
+  const [located, setLocated] = useState(saved?.located ?? false)
+  const [placed, setPlaced] = useState(saved !== null)
+  const [locating, setLocating] = useState(false)
   const [place, setPlace] = useState<{ key: string; name: string } | null>(null)
   const [radius, setRadius] = useState(5000)
   const [enabled, setEnabled] = useState<AmenityType[]>([])
@@ -64,12 +89,39 @@ export default function App() {
   const searchCtrl = useRef<AbortController | null>(null)
   const rows = useRef(new Map<string, HTMLButtonElement>())
 
+  // Mobile bottom sheet: scrolling the panel raises it over the map; searching or picking a result lowers it.
+  // Driven by wheel/touch rather than scroll events, because selecting a marker scrolls the list programmatically.
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const touchY = useRef<number | null>(null)
+  const lowerSheet = useCallback(() => setSheetOpen(false), [])
+  const onSheetWheel = (e: React.WheelEvent) => {
+    if (e.deltaY > 0) setSheetOpen(true)
+  }
+  const onSheetTouchStart = (e: React.TouchEvent) => {
+    touchY.current = e.touches[0]?.clientY ?? null
+  }
+  const onSheetTouchMove = (e: React.TouchEvent) => {
+    const y = e.touches[0]?.clientY
+    if (touchY.current !== null && y !== undefined && touchY.current - y > 10) setSheetOpen(true)
+  }
+
   const data: Amenity[] = useMemo(() => results?.amenities ?? [], [results])
 
   const pick = (p: Pos, fromDevice = false) => {
     setPos(p)
     setLocated(fromDevice)
     setPlaced(true)
+  }
+
+  // Remember the current point for this tab once the map is open
+  useEffect(() => {
+    if (started) writeSpot({ lat: pos.lat, lon: pos.lon, located })
+  }, [started, pos, located])
+
+  const enterMap = (p: Pos, fromDevice = false) => {
+    pick(p, fromDevice)
+    setError(null)
+    setStarted(true)
   }
 
   const findAddress = async (e: React.FormEvent) => {
@@ -81,7 +133,7 @@ export default function App() {
     try {
       const hit = await geocode(q)
       if (!hit) return setError(`Couldn't find "${q}". Try a city, ZIP code or full address.`)
-      pick(hit)
+      enterMap(hit)
     } catch (err) {
       setError(`Could not look up that location: ${(err as Error).message}`)
     } finally {
@@ -89,17 +141,28 @@ export default function App() {
     }
   }
 
-  // Location is only requested when the user asks for it
+  // Location is only requested when the user asks for it; the landing page stays up until it resolves
   const locate = () => {
-    if (!navigator.geolocation) return setError('Geolocation is not supported by this browser.')
+    if (!navigator.geolocation) return setError('Geolocation is not supported by this browser. Enter an address instead.')
+    setLocating(true)
+    setError(null)
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        pick({ lat: p.coords.latitude, lon: p.coords.longitude }, true)
-        setError(null)
+        setLocating(false)
+        enterMap({ lat: p.coords.latitude, lon: p.coords.longitude }, true)
       },
-      () => setError('Could not get your location. Click the map or enter an address instead.'),
+      () => {
+        setLocating(false)
+        setError('Could not get your location. Enter an address instead.')
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     )
+  }
+
+  const changeLocation = () => {
+    reset()
+    writeSpot(null)
+    setStarted(false)
   }
 
   // Reverse-geocode the chosen point for the heading
@@ -187,35 +250,52 @@ export default function App() {
   const toggle = (t: AmenityType) =>
     setEnabled((e) => (e.includes(t) ? e.filter((x) => x !== t) : [...e, t]))
 
+  if (!started) {
+    return (
+      <Landing
+        address={address}
+        finding={finding}
+        locating={locating}
+        error={error}
+        onAddressChange={setAddress}
+        onSubmitAddress={findAddress}
+        onUseLocation={locate}
+      />
+    )
+  }
+
   return (
     <div className="app">
-      <aside className="sidebar">
-        <div className="sidebar-body">
-        <p className="brand">SWIVEL</p>
-        <h1>Know what's around you. 👀</h1>
-        {placed && (
-          <p className="where">
-            📍 <strong>{placeName ?? 'Locating…'}</strong>
-            <br />
-            <small>{pos.lat.toFixed(4)}, {pos.lon.toFixed(4)}</small>
-          </p>
-        )}
-        <p className="sos">Maintain situational awareness. In an emergency call 911.</p>
-
-        <button onClick={locate}>📍 Use my location</button>
-        <form className="lookup" onSubmit={findAddress}>
-          <input
-            type="search"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Enter an address, city or ZIP"
-            aria-label="Location"
-          />
-          <button type="submit" disabled={!address.trim() || finding}>{finding ? '…' : 'Go'}</button>
-        </form>
-        <p className="hint">
-          {located ? 'Using your location.' : placed ? 'Click the map to move the point.' : 'Use your location, enter an address, or click the map.'}
+      <aside className={sheetOpen ? 'sidebar sheet-open' : 'sidebar'}>
+        <button
+          type="button"
+          className="sheet-handle"
+          aria-label={sheetOpen ? 'Show the map' : 'Expand the panel'}
+          aria-expanded={sheetOpen}
+          onClick={() => setSheetOpen((o) => !o)}
+        />
+        <div className="sidebar-body" onWheel={onSheetWheel} onTouchStart={onSheetTouchStart} onTouchMove={onSheetTouchMove}>
+        <h1 className="brand">SWIVEL</h1>
+        <p className="sos">
+          Always maintain situational awareness.
+          <br />
+          In an emergency call 911.
         </p>
+        {placed && (
+          <div className="where">
+            <p>
+              📍 <strong>{placeName ?? 'Locating…'}</strong>
+              <br />
+              <small>{pos.lat.toFixed(4)}, {pos.lon.toFixed(4)}</small>
+            </p>
+            <button type="button" className="icon-button" onClick={changeLocation} aria-label="Change location" title="Change location">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        )}
+        <p className="hint">{located ? 'Using your location. Double click the map to move the point.' : 'Double click the map to move the point.'}</p>
 
         <label className="field">
           Radius
@@ -228,8 +308,8 @@ export default function App() {
 
         {GROUPS.map((g) => {
           const amenities = LAYERS.filter((l) => l.group === g.id)
-          const shading = CHOROPLETHS.filter((c) => c.group === g.id)
-          const active = amenities.filter((l) => enabled.includes(l.type)).length + shading.filter((c) => c.id === choropleth).length
+          if (!amenities.length) return null
+          const active = amenities.filter((l) => enabled.includes(l.type)).length
           return (
             <details key={g.id} className="layers">
               <summary className="group">
@@ -244,15 +324,32 @@ export default function App() {
                   <Info text={l.source} />
                 </label>
               ))}
-              {shading.map((c) => (
-                <label key={c.id} className="layer">
-                  <input type="checkbox" data-layer={c.id} checked={choropleth === c.id} onChange={(e) => setChoropleth(e.target.checked ? c.id : null)} />
-                  {c.emoji} <span>{c.label}</span> <Info text={`${c.source} · county map shading`} />
-                </label>
-              ))}
             </details>
           )
         })}
+
+        {/* County shading layers, sub-grouped by topic; only one can be shown at a time */}
+        <details className="layers">
+          <summary className="group">
+            <span className="grp-label">Map Layers</span>
+            {activeChoropleth && <span className="badge">1</span>}
+          </summary>
+          {GROUPS.map((g) => {
+            const shading = CHOROPLETHS.filter((c) => c.group === g.id)
+            if (!shading.length) return null
+            return (
+              <div key={g.id} className="layer-subgroup" role="group" aria-labelledby={`maplayers-${g.id}`}>
+                <p className="layer-subhead" id={`maplayers-${g.id}`}>{g.label}</p>
+                {shading.map((c) => (
+                  <label key={c.id} className="layer">
+                    <input type="checkbox" data-layer={c.id} checked={choropleth === c.id} onChange={(e) => setChoropleth(e.target.checked ? c.id : null)} />
+                    {c.emoji} <span>{c.label}</span> <Info text={`${c.source} · county map shading`} />
+                  </label>
+                ))}
+              </div>
+            )
+          })}
+        </details>
 
         <div role="status" aria-live="polite">
           {loading && (
@@ -290,7 +387,10 @@ export default function App() {
                 }}
                 className={a.id === selected?.id ? 'active' : ''}
                 aria-current={a.id === selected?.id ? 'true' : undefined}
-                onClick={() => setSelected({ id: a.id, from: 'list' })}
+                onClick={() => {
+                  setSelected({ id: a.id, from: 'list' })
+                  lowerSheet()
+                }}
               >
                 <strong>{layerOf(a.type).emoji} {a.name}</strong>
                 <span>{fmtDist(a.distance)}</span>
@@ -303,12 +403,20 @@ export default function App() {
           Map © OpenStreetMap contributors. Place names by Nominatim. Listings come from public datasets that may be out of
           date; verify before relying on them.
         </p>
+        <SupportLink />
         </div>
 
         <div className="sidebar-actions">
           {!enabled.length && <p className="hint">Select what you're looking for, then press Search.</p>}
           <div className="action-row">
-            <button className="primary" disabled={!enabled.length || loading} onClick={search}>
+            <button
+              className="primary"
+              disabled={!enabled.length || loading}
+              onClick={() => {
+                search()
+                lowerSheet()
+              }}
+            >
               🔍 Search
             </button>
             <button onClick={reset}>↺ Reset</button>
@@ -317,14 +425,15 @@ export default function App() {
       </aside>
 
       <div className="map-wrap">
-      <MapContainer center={[pos.lat, pos.lon]} zoom={zoom} className="map">
+      {/* Double click moves the point, so it must not also zoom */}
+      <MapContainer center={[pos.lat, pos.lon]} zoom={zoom} className="map" doubleClickZoom={false}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {activeChoropleth && <ChoroplethLayer key={activeChoropleth.id} cfg={activeChoropleth} onError={onLayerError} />}
         <FlyTo pos={pos} zoom={zoom} />
-        <ClickToSet onPick={(p) => pick(p)} />
+        <DoubleClickToSet onPick={(p) => pick(p)} onTap={lowerSheet} />
         <Circle center={[pos.lat, pos.lon]} radius={radius} pathOptions={{ color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.1, weight: 2, dashArray: '6 8' }} />
         <CircleMarker center={[pos.lat, pos.lon]} radius={16} pathOptions={{ stroke: false, fillColor: '#22d3ee', fillOpacity: 0.25 }} />
         <CircleMarker center={[pos.lat, pos.lon]} radius={8} pathOptions={{ color: '#fff', fillColor: '#22d3ee', fillOpacity: 1, weight: 3 }} />

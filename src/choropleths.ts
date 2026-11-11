@@ -71,7 +71,7 @@ type MobileRow = { name: string; g4: number | null; g4v: number | null; g5: numb
 
 const mobileLayer = (field: 'g4' | 'g5', emoji: string, label: string, tech: string): ChoroplethConfig => ({
   id: `mobile_${field}`,
-  group: 'social',
+  group: 'tech',
   emoji,
   label,
   source: 'FCC BDC',

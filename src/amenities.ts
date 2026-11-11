@@ -11,7 +11,7 @@ export interface AmenityLayer {
   source: string
 }
 
-export type LayerGroup = 'public_safety' | 'transportation' | 'social' | 'demographics' | 'environmental'
+export type LayerGroup = 'public_safety' | 'transportation' | 'social' | 'demographics' | 'environmental' | 'tech'
 
 export const GROUPS: { id: LayerGroup; label: string }[] = [
   { id: 'public_safety', label: 'Public Safety' },
@@ -19,6 +19,7 @@ export const GROUPS: { id: LayerGroup; label: string }[] = [
   { id: 'social', label: 'Social' },
   { id: 'demographics', label: 'Demographics' },
   { id: 'environmental', label: 'Environmental' },
+  { id: 'tech', label: 'Tech' },
 ]
 
 const HIFLD = 'HIFLD'

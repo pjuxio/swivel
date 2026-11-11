@@ -50,7 +50,10 @@ Notes:
   policy requires. Set `NOMINATIM_EMAIL` to identify the app to them.
 - County shading layers use the small JSON files in `src/data/` and stay in the browser bundle. Their configuration
   (scales, legends, notes) lives in [src/choropleths.ts](src/choropleths.ts).
-- The browser only asks for the device location when "Use my location" is pressed.
+- The app opens on a landing page where you choose a location, either with "Use my location" or by entering an
+  address. The browser only asks for the device location after "Use my location" is pressed. On the map, double click to
+  move the point or press ✕ next to the place name to return to the landing page. The point is kept for the browser tab, so a
+  refresh stays on the map.
 
 ## Data scripts
 
