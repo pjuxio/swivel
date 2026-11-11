@@ -117,6 +117,7 @@ export function parseTrustProxy(v) {
  *   distDir?: string | null,
  *   ev?: LiveFetcher,
  *   geocode?: Pick<typeof geocoder, 'geocode' | 'reverseGeocode'>,
+ *   usage?: Pick<ReturnType<typeof import('./usage.js').createUsage>, 'record'>,
  * }} [opts]
  */
 export function createApp(opts = {}) {
@@ -127,6 +128,7 @@ export function createApp(opts = {}) {
     distDir = DEFAULT_DIST,
     ev = fetchEvChargers,
     geocode = geocoder,
+    usage,
   } = opts
 
   const app = express()
@@ -184,6 +186,7 @@ export function createApp(opts = {}) {
       return res.status(400).json({ error: 'Unknown or missing types.' })
     }
     const { lat, lon } = point
+    usage?.record(req, 'amenities', types)
 
     const controller = new AbortController()
     res.on('close', () => controller.abort())
@@ -223,6 +226,7 @@ export function createApp(opts = {}) {
   app.post('/api/geocode', geoLimit, async (req, res) => {
     const q = typeof req.body?.q === 'string' ? req.body.q.trim() : ''
     if (!q || q.length > 200) return res.status(400).json({ error: 'Enter a place to look up.' })
+    usage?.record(req, 'geocode')
     try {
       const hit = await geocode.geocode(q)
       res.json({ hit })
@@ -235,6 +239,7 @@ export function createApp(opts = {}) {
   app.post('/api/reverse', geoLimit, async (req, res) => {
     const point = parsePoint(req.body?.lat, req.body?.lon)
     if (!point) return res.status(400).json({ error: 'Invalid lat/lon.' })
+    usage?.record(req, 'reverse')
     try {
       res.json({ name: await geocode.reverseGeocode(point.lat, point.lon) })
     } catch (e) {
