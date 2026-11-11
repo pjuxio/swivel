@@ -14,6 +14,8 @@ Live instance: <https://swivel-app.com>
 
 - **Nearby search:** pick any of 18 point layers and a radius (1–100 km) to list the nearest places, nearest first,
   with details and links.
+- **CSV export:** download the listings on screen as a CSV file. It's built in the browser, so nothing extra is sent
+  to the server.
 - **County map layers:** 21 county shading layers (demographics, health, environment, elections, mobile coverage)
   with legends. One is shown at a time.
 - **Privacy:**
@@ -73,6 +75,7 @@ server/            Express API (plain JS, type-checked through JSDoc)
   data/            bundled point datasets (GeoJSON)
 src/               React + Leaflet front end (TypeScript)
   App.tsx          map page: sidebar, search, results, bottom sheet
+  exportCsv.ts     builds and downloads the results CSV
   Landing.tsx      landing page (location choice)
   amenities.ts     point layer list (LAYERS), groups and API client
   choropleths.ts   county shading layers (CHOROPLETHS)

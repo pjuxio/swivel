@@ -32,6 +32,8 @@ extended with new datasets.
 - `src/amenities.ts`: `AmenityType`, `LAYERS` (point layers shown in the sidebar), `GROUPS`/`LayerGroup` and the API
   client.
 - `src/choropleths.ts`: `CHOROPLETHS` county shading layers and the `ChoroplethConfig` interface.
+- `src/exportCsv.ts`: client-side CSV export of the current results (neutralizes formula-like cells; never includes
+  the search point).
 - `src/App.tsx`: the map page. `src/Landing.tsx`: the landing page. `src/App.css`: all app styles.
 
 ## Adding data

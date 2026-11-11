@@ -6,6 +6,7 @@ import './App.css'
 import AmenityMarkers, { type Selection } from './AmenityMarkers'
 import ChoroplethLayer, { ChoroplethLegend } from './ChoroplethLayer'
 import { CHOROPLETHS } from './choropleths'
+import { downloadCsv } from './exportCsv'
 import { fmtCount, fmtDist } from './format'
 import Landing from './Landing'
 import SupportLink from './SupportLink'
@@ -375,6 +376,14 @@ export default function App() {
             ))}
             . Use a smaller radius to see everything.
           </p>
+        )}
+
+        {!loading && data.length > 0 && (
+          <div className="export-row">
+            <button type="button" className="footer-link" onClick={() => downloadCsv(data)}>
+              ⬇ Export {fmtCount(data.length)} listing{data.length === 1 ? '' : 's'} (CSV)
+            </button>
+          </div>
         )}
 
         <ul className="results" aria-label="Results">
