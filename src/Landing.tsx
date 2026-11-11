@@ -17,12 +17,12 @@ export default function Landing({ address, finding, locating, error, onAddressCh
       <GlowCanvas />
       <div className="landing-card">
         <p className="brand">SWIVEL</p>
-        <h1>Know what's around you. 👀</h1>
+        <h1>Know what's around{'\u00a0'}you.{'\u00a0'}👀</h1>
         <p className="landing-lead">
           Find nearby services, safety resources and community data for any place in the United States, then layer on
-          county-level maps.
+          county{'\u2011'}level{'\u00a0'}maps.
         </p>
-        <p className="landing-badge">🇺🇸 United States only: data and searches cover the US.</p>
+        <p className="landing-badge">🇺🇸 United States only: data and searches cover the{'\u00a0'}US.</p>
         <button className="primary landing-cta" onClick={onUseLocation} disabled={locating} autoFocus>
           {locating ? 'Finding you…' : '📍 Use my location'}
         </button>

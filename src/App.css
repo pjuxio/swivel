@@ -224,8 +224,11 @@ button.icon-button:hover:not(:disabled) { color: var(--text); background: #21263
   position: relative; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 22px; text-align: center;
 }
 .landing .brand { font-size: 44px; margin-bottom: 4px; align-self: center; }
-.landing h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
-.landing-lead { margin: 0; color: #dfe3f0; font-size: 19px; line-height: 1.6; text-shadow: 0 1px 12px rgba(11, 13, 20, 0.8); }
+.landing h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; text-wrap: balance; }
+.landing-lead {
+  margin: 0; color: #dfe3f0; font-size: 19px; line-height: 1.6; text-shadow: 0 1px 12px rgba(11, 13, 20, 0.8);
+  text-wrap: balance; text-wrap: pretty;
+}
 .landing-cta { padding: 14px 16px; font-size: 16px; margin-top: 12px; }
 .landing-lookup input { padding: 12px 14px; font-size: 16px; }
 .landing-lookup button { padding: 12px 20px; }
@@ -235,7 +238,7 @@ button.icon-button:hover:not(:disabled) { color: var(--text); background: #21263
 .landing .hint { line-height: 1.6; margin-top: 8px; }
 .landing .sos { line-height: 1.6; }
 .landing-badge {
-  align-self: center; margin: 0; padding: 4px 12px; font-size: 13px; color: var(--accent-2);
+  align-self: center; margin: 0; padding: 4px 12px; font-size: 13px; color: var(--accent-2); text-wrap: balance;
   border: 1px solid var(--border); border-radius: 999px; background: var(--panel-2);
 }
 .support-link {
