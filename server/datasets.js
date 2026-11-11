@@ -172,7 +172,6 @@ const LOADERS = {
   ice_office: normalized('ice_office', 'ice_office.geojson'),
   airport: normalized('airport', 'airport.geojson'),
   train_station: normalized('train_station', 'train_station.geojson'),
-  hate_group: normalized('hate_group', 'splc_hate.geojson'),
   sundown_town: normalized('sundown_town', 'sundown_towns.geojson'),
   ghg_emitter: normalized('ghg_emitter', 'ghgrp.geojson'),
   pfas_system: normalized('pfas_system', 'pfas_systems.geojson'),

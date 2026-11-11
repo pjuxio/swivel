@@ -176,7 +176,7 @@ export const CHOROPLETHS: ChoroplethConfig[] = [
   mobileLayer('g5', '📲', 'Mobile 5G coverage', '5G-NR (35/3 Mbps)'),
   {
     id: 'hatecrime',
-    group: 'social',
+    group: 'public_safety',
     emoji: '⚠️',
     label: 'Hate crimes',
     source: 'FBI 2020–24',

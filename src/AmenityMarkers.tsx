@@ -23,12 +23,36 @@ const ICONS = Object.fromEntries(
   ]),
 ) as Record<AmenityType, L.DivIcon>
 
+const markerType = new WeakMap<L.Marker, AmenityType>()
+
+// Single-type clusters take that layer's color; mixed clusters show each type's share as a pie
+function clusterBackground(cluster: L.MarkerCluster) {
+  const counts = new Map<AmenityType, number>()
+  for (const m of cluster.getAllChildMarkers()) {
+    const t = markerType.get(m)
+    if (t) counts.set(t, (counts.get(t) ?? 0) + 1)
+  }
+  const parts = LAYERS.filter((l) => counts.has(l.type)).map((l) => ({ color: l.color, n: counts.get(l.type)! }))
+  if (parts.length === 0) return { bg: '#8b5cf6', halo: '#8b5cf6' }
+  if (parts.length === 1) return { bg: parts[0].color, halo: parts[0].color }
+  const total = parts.reduce((s, p) => s + p.n, 0)
+  let acc = 0
+  const stops = parts.map((p) => {
+    const from = (acc / total) * 100
+    acc += p.n
+    return `${p.color} ${from}% ${(acc / total) * 100}%`
+  })
+  const top = parts.reduce((a, b) => (b.n > a.n ? b : a))
+  return { bg: `conic-gradient(${stops.join(', ')})`, halo: top.color }
+}
+
 function clusterIcon(cluster: L.MarkerCluster) {
   const n = cluster.getChildCount()
   const size = n < 10 ? 34 : n < 100 ? 40 : 48
+  const { bg, halo } = clusterBackground(cluster)
   return L.divIcon({
     className: '',
-    html: `<div class="cluster" style="width:${size}px;height:${size}px">${n}</div>`,
+    html: `<div class="cluster" style="width:${size}px;height:${size}px;background:${bg};--halo:${halo}40">${n}</div>`,
     iconSize: [size, size],
   })
 }
@@ -118,6 +142,7 @@ export default function AmenityMarkers({ items, origin, selected, onSelect }: Pr
       const m = L.marker([a.lat, a.lon], { icon: ICONS[a.type], title: a.name, alt: a.name, keyboard: true })
       m.bindPopup(() => popupContent(a, origin), { maxWidth: 300 })
       m.on('click', () => onSelectRef.current(a.id))
+      markerType.set(m, a.type)
       markers.current.set(a.id, m)
       return m
     })

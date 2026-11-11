@@ -1,6 +1,6 @@
 # SWIVEL
 
-**Safety Warning & Instant Vigilance Emergency Link.** Know what's around you.
+**Safety Warning & Instant Vigilance Entity Lookup.** Know what's around you.
 
 SWIVEL is an open source map of what's near any location in the United States: hospitals, police, transit,
 pollution sources, community and historical data. On top of that, you can shade counties by demographics, health,
@@ -12,7 +12,7 @@ Live instance: <https://swivel-app.com>
 
 ## Features
 
-- **Nearby search:** pick any of 19 point layers and a radius (1–100 km) to list the nearest places, nearest first,
+- **Nearby search:** pick any of 18 point layers and a radius (1–100 km) to list the nearest places, nearest first,
   with details and links.
 - **County map layers:** 21 county shading layers (demographics, health, environment, elections, mobile coverage)
   with legends. One is shown at a time.
@@ -250,8 +250,8 @@ git push heroku main                                # or connect the GitHub repo
 ## Data sources and licensing
 
 The **code** is released under the [MIT License](LICENSE). The **bundled datasets are not**: each keeps the terms of
-its original publisher. Most are US government works in the public domain; others (for example the SPLC and the
-Tougaloo College sundown towns database) are published by organisations with their own terms. Check a source's terms
+its original publisher. Most are US government works in the public domain; others (for example the Tougaloo College
+sundown towns database) are published by organisations with their own terms. Check a source's terms
 before redistributing its data or using it commercially. Listings may be out of date, so verify anything you rely on.
 
 | Layer | Source |
@@ -261,7 +261,6 @@ before redistributing its data or using it commercially. Listings may be out of 
 | Airports, military installations, Amtrak stations | US DOT National Transportation Atlas Database |
 | ICE field offices | ICE ERO field office list (community-maintained) |
 | EV charging stations | DOE Alternative Fuels Data Center (live API) |
-| Hate and extremist groups | Southern Poverty Law Center, 2025 |
 | Sundown towns (historical) | Tougaloo College Sundown Towns Database |
 | Data centers | Open Data Center Data |
 | Greenhouse gas emitters | EPA Greenhouse Gas Reporting Program 2023 |

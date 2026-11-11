@@ -1,5 +1,6 @@
 import GlowCanvas from './GlowCanvas'
 import SupportLink from './SupportLink'
+import AboutLink from './AboutLink'
 
 type Props = {
   address: string
@@ -43,7 +44,10 @@ export default function Landing({ address, finding, locating, error, onAddressCh
           needs it.
         </p>
         <p className="sos">Always maintain situational awareness. In an emergency call 911.</p>
-        <SupportLink />
+        <div className="footer-links">
+          <SupportLink />
+          <AboutLink />
+        </div>
       </div>
     </main>
   )

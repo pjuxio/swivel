@@ -1,5 +1,5 @@
 
-export type AmenityType = 'hospital' | 'police' | 'fire_station' | 'urgent_care' | 'data_center' | 'superfund' | 'airport' | 'train_station' | 'hate_group' | 'ghg_emitter' | 'pfas_system' | 'prison' | 'military' | 'ice_office' | 'tri' | 'brownfield' | 'landfill' | 'ev_charger' | 'sundown_town'
+export type AmenityType = 'hospital' | 'police' | 'fire_station' | 'urgent_care' | 'data_center' | 'superfund' | 'airport' | 'train_station' | 'ghg_emitter' | 'pfas_system' | 'prison' | 'military' | 'ice_office' | 'tri' | 'brownfield' | 'landfill' | 'ev_charger' | 'sundown_town'
 
 export interface AmenityLayer {
   type: AmenityType
@@ -16,9 +16,9 @@ export type LayerGroup = 'public_safety' | 'transportation' | 'social' | 'demogr
 export const GROUPS: { id: LayerGroup; label: string }[] = [
   { id: 'public_safety', label: 'Public Safety' },
   { id: 'transportation', label: 'Transportation' },
-  { id: 'social', label: 'Social' },
-  { id: 'demographics', label: 'Demographics' },
   { id: 'environmental', label: 'Environmental' },
+  { id: 'social', label: 'Historical' },
+  { id: 'demographics', label: 'Demographics' },
   { id: 'tech', label: 'Tech' },
 ]
 
@@ -36,7 +36,6 @@ export const LAYERS: AmenityLayer[] = [
   { type: 'ice_office', group: 'public_safety', label: 'ICE field offices', color: '#283593', emoji: '🛂', source: 'ICE ERO (community-maintained)' },
   { type: 'airport', group: 'transportation', label: 'Airports', color: '#0277bd', emoji: '✈️', source: DOT },
   { type: 'train_station', group: 'transportation', label: 'Train stations', color: '#6d4c41', emoji: '🚆', source: 'Amtrak (US DOT)' },
-  { type: 'hate_group', group: 'social', label: 'Hate & extremist groups', color: '#b71c1c', emoji: '⚠️', source: 'SPLC 2025' },
   { type: 'sundown_town', group: 'social', label: 'Sundown towns (historical)', color: '#880e4f', emoji: '🌇', source: 'Tougaloo College Sundown Towns Database' },
   { type: 'data_center', group: 'environmental', label: 'Data centers', color: '#455a64', emoji: '🖥️', source: 'Open Data Center Data' },
   { type: 'ghg_emitter', group: 'environmental', label: 'Greenhouse gas emitters', color: '#6a1b9a', emoji: '🏭', source: 'EPA GHGRP 2023' },

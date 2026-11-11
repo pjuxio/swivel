@@ -2,6 +2,9 @@
 
 The CSV has only state and city, so pins are placed at the city (or county) centroid.
 Rows flagged statewide have no city and are skipped.
+
+Deprecated: the hate_group layer is disabled (not in LOADERS or LAYERS) because centroid pins
+read as real addresses. Re-enable it once groups have precise locations.
 """
 import csv
 import json

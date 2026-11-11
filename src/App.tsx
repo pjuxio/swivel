@@ -9,6 +9,7 @@ import { CHOROPLETHS } from './choropleths'
 import { fmtCount, fmtDist } from './format'
 import Landing from './Landing'
 import SupportLink from './SupportLink'
+import AboutLink from './AboutLink'
 
 type Pos = { lat: number; lon: number }
 type Query = { pos: Pos; radius: number; types: AmenityType[] }
@@ -403,7 +404,10 @@ export default function App() {
           Map © OpenStreetMap contributors. Place names by Nominatim. Listings come from public datasets that may be out of
           date; verify before relying on them.
         </p>
-        <SupportLink />
+        <div className="footer-links">
+          <SupportLink />
+          <AboutLink />
+        </div>
         </div>
 
         <div className="sidebar-actions">
