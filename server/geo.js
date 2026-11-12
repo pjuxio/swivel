@@ -42,3 +42,48 @@ const US_BOXES = [
 export function inUS(lat, lon) {
   return US_BOXES.some(([a, b, c, d]) => lat >= a && lat <= b && lon >= c && lon <= d)
 }
+
+/** @typedef {[number, number][]} Ring [lon, lat] vertices */
+
+/**
+ * The outer rings of a GeoJSON Polygon or MultiPolygon. Holes are ignored, which is fine for "does it touch the area".
+ * @param {any} geometry @returns {Ring[]}
+ */
+export function outerRings(geometry) {
+  if (geometry?.type === 'Polygon') return [geometry.coordinates[0]]
+  if (geometry?.type === 'MultiPolygon') return geometry.coordinates.map((/** @type {Ring[]} */ p) => p[0])
+  return []
+}
+
+/**
+ * Whether a circle (center, radius in meters) touches or lies inside a polygon ring. Works on a local flat
+ * projection around the center, which is accurate to well under 1% at the radii we allow.
+ * @param {number} lat @param {number} lon @param {number} radiusM @param {Ring} ring
+ */
+export function circleTouchesRing(lat, lon, radiusM, ring) {
+  const mPerDegLon = 111_320 * Math.cos((lat * Math.PI) / 180)
+  /** @param {[number, number]} p */
+  const xy = ([pLon, pLat]) => {
+    const dLon = ((((pLon - lon) % 360) + 540) % 360) - 180 // across the antimeridian
+    return [dLon * mPerDegLon, (pLat - lat) * 110_540]
+  }
+  const r2 = radiusM * radiusM
+  let inside = false
+  let [ax = 0, ay = 0] = ring.length ? xy(ring[ring.length - 1]) : []
+  for (const p of ring) {
+    const [bx, by] = xy(p)
+    // Distance from the center (the origin) to the segment a-b
+    const dx = bx - ax
+    const dy = by - ay
+    const len2 = dx * dx + dy * dy
+    const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0
+    const cx = ax + t * dx
+    const cy = ay + t * dy
+    if (cx * cx + cy * cy <= r2) return true
+    // Ray cast to the right for "center is inside the ring"
+    if (ay > 0 !== by > 0 && (bx - ax) * (0 - ay) / (by - ay) + ax > 0) inside = !inside
+    ax = bx
+    ay = by
+  }
+  return inside
+}

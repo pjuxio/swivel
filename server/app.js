@@ -8,7 +8,8 @@ import helmet from 'helmet'
 import { STATIC_TYPES, loadStatic } from './datasets.js'
 import { fetchEvChargers } from './ev.js'
 import * as geocoder from './geocode.js'
-import { nearest } from './geo.js'
+import { inUS, nearest } from './geo.js'
+import { fetchAlerts } from './weather.js'
 
 /** @typedef {import('express').Request} Req @typedef {import('express').Response} Res @typedef {import('express').NextFunction} Next */
 /**
@@ -117,6 +118,7 @@ export function parseTrustProxy(v) {
  *   distDir?: string | null,
  *   ev?: LiveFetcher,
  *   geocode?: Pick<typeof geocoder, 'geocode' | 'reverseGeocode'>,
+ *   alerts?: typeof fetchAlerts,
  *   usage?: Pick<ReturnType<typeof import('./usage.js').createUsage>, 'record'>,
  * }} [opts]
  */
@@ -128,6 +130,7 @@ export function createApp(opts = {}) {
     distDir = DEFAULT_DIST,
     ev = fetchEvChargers,
     geocode = geocoder,
+    alerts = fetchAlerts,
     usage,
   } = opts
 
@@ -245,6 +248,25 @@ export function createApp(opts = {}) {
     } catch (e) {
       console.error('reverse:', /** @type {Error} */ (e).message)
       res.status(502).json({ error: 'The location service is unavailable right now.' })
+    }
+  })
+
+  // NWS alerts at the search point and anywhere within `radius` meters of it (optional); outside the US there are none
+  app.post('/api/alerts', rateLimit({ windowMs: 60_000, max: 60 }), async (req, res) => {
+    const point = parsePoint(req.body?.lat, req.body?.lon)
+    if (!point) return res.status(400).json({ error: 'Invalid lat/lon.' })
+    const radius = req.body.radius === undefined ? 0 : num(req.body.radius)
+    if (!(radius >= 0 && radius <= MAX_RADIUS_M)) return res.status(400).json({ error: `radius must be 0-${MAX_RADIUS_M} meters.` })
+    usage?.record(req, 'alerts')
+    if (!inUS(point.lat, point.lon)) return res.json({ alerts: [] })
+
+    const controller = new AbortController()
+    res.on('close', () => controller.abort())
+    try {
+      res.json({ alerts: await alerts(point.lat, point.lon, radius, controller.signal) })
+    } catch (e) {
+      console.error('alerts:', /** @type {Error} */ (e).message)
+      res.status(502).json({ error: 'The weather service is unavailable right now.' })
     }
   })
 

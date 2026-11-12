@@ -167,6 +167,36 @@ button.icon-button:hover:not(:disabled) { color: var(--text); background: #21263
 }
 .legend-toggle[aria-expanded='false'] .legend-caret { transform: rotate(-135deg); margin-bottom: -2px; }
 .map-legend .legend { background: rgba(18, 21, 31, 0.92); backdrop-filter: blur(6px); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5); }
+.weather {
+  position: absolute; top: 12px; right: 12px; z-index: 1000; width: min(340px, calc(100% - 76px));
+  display: flex; flex-direction: column; gap: 6px; align-items: stretch; pointer-events: none;
+}
+.weather > * { pointer-events: auto; }
+.weather-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; text-align: left; font-size: 13px;
+  background: rgba(18, 21, 31, 0.94); backdrop-filter: blur(6px); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  border-left: 4px solid var(--muted);
+}
+.weather-title { flex: 1; min-width: 0; font-weight: 600; }
+.weather-title small { color: var(--muted); font-weight: normal; margin-left: 4px; }
+.weather-quiet {
+  align-self: flex-end; margin: 0; padding: 3px 10px; border-radius: 999px; font-size: 11px; color: var(--muted);
+  background: rgba(18, 21, 31, 0.85); backdrop-filter: blur(6px);
+}
+.weather-toggle[aria-expanded='true'] .legend-caret { transform: rotate(-135deg); margin-bottom: -2px; }
+.weather-list {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;
+  max-height: 50vh; overflow-y: auto;
+}
+.weather-list li {
+  padding: 8px 12px; font-size: 13px; background: rgba(18, 21, 31, 0.94); backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-left: 4px solid var(--muted); border-radius: 10px;
+}
+.weather-list summary { display: flex; flex-direction: column; gap: 1px; cursor: pointer; }
+.weather-list summary small { color: var(--muted); }
+.weather-list p { margin: 8px 0 0; }
+.weather-text { white-space: pre-line; color: var(--muted); font-size: 12px; max-height: 160px; overflow-y: auto; }
+.weather-area { color: var(--muted); font-size: 12px; }
 .leaflet-container a { color: var(--accent-2); }
 .leaflet-control-attribution { background: rgba(11, 13, 20, 0.7) !important; color: var(--muted) !important; }
 .leaflet-bar a { background: var(--panel) !important; color: var(--text) !important; border-color: var(--border) !important; }

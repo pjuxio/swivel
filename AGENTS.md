@@ -27,6 +27,8 @@ extended with new datasets.
 - `server/datasets.js`: `LOADERS` maps each point layer type to a loader. `normalized(type, file)` reads the standard
   GeoJSON shape.
 - `server/geo.js`: `inUS` bounds and `nearest()`. `server/geocode.js`: Nominatim proxy. `server/ev.js`: live EV API.
+  `server/weather.js`: live NWS weather alerts at a point or within a radius (`POST /api/alerts`), using
+  `server/counties.js` and the circle/polygon helpers in `server/geo.js`.
 - `server/usage.js`: anonymous in-memory usage counters, flushed hourly. `server/usage-store.js`: optional Postgres
   store (`usage_daily` table), enabled by `DATABASE_URL`. `scripts/usage.js`: the `npm run usage` report.
 - `src/amenities.ts`: `AmenityType`, `LAYERS` (point layers shown in the sidebar), `GROUPS`/`LayerGroup` and the API
@@ -34,6 +36,8 @@ extended with new datasets.
 - `src/choropleths.ts`: `CHOROPLETHS` county shading layers and the `ChoroplethConfig` interface.
 - `src/exportCsv.ts`: client-side CSV export of the current results (neutralizes formula-like cells; never includes
   the search point).
+- `src/WeatherAlerts.tsx`: `useWeatherAlerts` (polls `/api/alerts` only once the map is open), the map banner and the
+  warning polygon outlines.
 - `src/App.tsx`: the map page. `src/Landing.tsx`: the landing page. `src/App.css`: all app styles.
 
 ## Adding data

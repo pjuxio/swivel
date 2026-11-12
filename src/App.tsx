@@ -10,6 +10,7 @@ import { downloadCsv } from './exportCsv'
 import { fmtCount, fmtDist } from './format'
 import Landing from './Landing'
 import SupportLink from './SupportLink'
+import WeatherAlerts, { WeatherAlertShapes, useWeatherAlerts } from './WeatherAlerts'
 import AboutLink from './AboutLink'
 
 type Pos = { lat: number; lon: number }
@@ -88,6 +89,7 @@ export default function App() {
   const [legendOpen, setLegendOpen] = useState(true)
   const [choropleth, setChoropleth] = useState<string | null>(null)
   const [finding, setFinding] = useState(false)
+  const weather = useWeatherAlerts(pos.lat, pos.lon, radius, started && placed)
   const searchCtrl = useRef<AbortController | null>(null)
   const rows = useRef(new Map<string, HTMLButtonElement>())
 
@@ -445,6 +447,7 @@ export default function App() {
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {activeChoropleth && <ChoroplethLayer key={activeChoropleth.id} cfg={activeChoropleth} onError={onLayerError} />}
+        {weather?.alerts && <WeatherAlertShapes alerts={weather.alerts} />}
         <FlyTo pos={pos} zoom={zoom} />
         <DoubleClickToSet onPick={(p) => pick(p)} onTap={lowerSheet} />
         <Circle center={[pos.lat, pos.lon]} radius={radius} pathOptions={{ color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.1, weight: 2, dashArray: '6 8' }} />
@@ -452,6 +455,7 @@ export default function App() {
         <CircleMarker center={[pos.lat, pos.lon]} radius={8} pathOptions={{ color: '#fff', fillColor: '#22d3ee', fillOpacity: 1, weight: 3 }} />
         <AmenityMarkers items={data} origin={origin} selected={selected} onSelect={selectFromMap} />
       </MapContainer>
+      {weather && <WeatherAlerts state={weather} radius={radius} />}
       {activeChoropleth && (
         <div className="map-legend">
           <button

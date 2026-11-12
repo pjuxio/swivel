@@ -29,6 +29,7 @@ export default function AboutLink() {
           <h3>Data</h3>
           <p>
             Listings come from public datasets (HIFLD, US DOT, EPA, DOE, FBI, Census and others) that may be out of date.
+            Weather alerts are live from the National Weather Service and can lag; always follow official local guidance.
             Verify anything you rely on. In an emergency call 911.
           </p>
           <p>

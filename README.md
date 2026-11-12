@@ -14,6 +14,9 @@ Live instance: <https://swivel-app.com>
 
 - **Nearby search:** pick any of 18 point layers and a radius (1–100 km) to list the nearest places, nearest first,
   with details and links.
+- **Weather alerts:** live National Weather Service watches, warnings and advisories at the search point or anywhere
+  within the selected radius, in a banner on the map. Warning polygons are outlined on the map. Refreshed every
+  5 minutes.
 - **CSV export:** download the listings on screen as a CSV file. It's built in the browser, so nothing extra is sent
   to the server.
 - **County map layers:** 21 county shading layers (demographics, health, environment, elections, mobile coverage)
@@ -25,7 +28,7 @@ Live instance: <https://swivel-app.com>
   - Geocoding is proxied, so Nominatim never sees the user.
 - **Mobile:** on phones the panel is a bottom sheet. Scroll it to cover the map; Search lowers it.
 - **Self-contained:** one Node process serves the API and the front end. Point data is bundled in the repo, so only
-  EV charging stations, geocoding and map tiles call outside services.
+  EV charging stations, weather alerts, geocoding and map tiles call outside services.
 
 ## Quick start
 
@@ -56,6 +59,7 @@ All settings are environment variables, read from `.env.local` in development. S
 |---|---|---|
 | `NLR_API_KEY` | `DEMO_KEY` | Free key from <https://developer.nlr.gov/signup/> for live EV charging stations. The shared demo key is heavily rate limited. |
 | `NOMINATIM_EMAIL` | none | Contact email sent with geocoding requests, as Nominatim's usage policy asks. Set it if you run a public instance. |
+| `NWS_CONTACT` | `NOMINATIM_EMAIL` | Contact email sent in the User-Agent of National Weather Service requests, as the NWS API asks. |
 | `NOMINATIM_URL` | `https://nominatim.openstreetmap.org` | Point at your own or a commercial Nominatim server. |
 | `APP_PASSWORD` | none | Puts the whole app behind a shared password (any username). |
 | `PORT` | `3001` | Port for the API / production server. |
@@ -71,6 +75,8 @@ server/            Express API (plain JS, type-checked through JSDoc)
   datasets.js      point dataset loaders (LOADERS) and normalisation
   ev.js            live EV charging stations (DOE AFDC)
   geocode.js       Nominatim proxy with rounding, caching and throttling
+  weather.js       live weather alerts (National Weather Service), at a point or within a radius
+  counties.js      which counties touch a circle (from src/data/counties.topo.json)
   geo.js           US bounds check and nearest-first search
   data/            bundled point datasets (GeoJSON)
 src/               React + Leaflet front end (TypeScript)
@@ -198,6 +204,11 @@ All endpoints except `/api/health` are `POST` with a JSON body, so coordinates s
   - `counts[type]` is `{ shown, total }`; `total > shown` means the layer was cut.
 - **`POST /api/geocode`** with `{ q }` returns `{ hit: { lat, lon } | null }`.
 - **`POST /api/reverse`** with `{ lat, lon }` returns `{ name }`.
+- **`POST /api/alerts`** with `{ lat, lon, radius }` (`radius` in meters, optional, max 200000) returns `{ alerts }`:
+  the active NWS alerts at that point or within the radius, most severe first (`id`, `event`, `severity`,
+  `headline`, `areaDesc`, `sender`, `description`, `instruction`, `expires`, `atPoint`, and a GeoJSON `geometry`
+  when NWS drew a polygon). Without `radius` only alerts at the point are returned. Points outside the US return an
+  empty list.
 - **`GET /api/health`** returns `{ ok: true }` and is always open (use it for uptime checks).
 
 How it behaves:
@@ -206,6 +217,12 @@ How it behaves:
   `https://`, drops points outside the US and its territories, and keeps only sundown-town records with a status of
   Possible, Probable or Surely.
 - **EV charging stations:** fetched live from the DOE/NLR Alternative Fuels API and cached for 10 minutes.
+- **Weather alerts:** fetched from the NWS API (`api.weather.gov`, no key needed) through the server. Alerts at the
+  point come from NWS's own lookup (the point is rounded to about 100 m) and are cached for 2 minutes. For the
+  radius, the server keeps one shared 2-minute copy of every active US alert and keeps those whose polygon touches
+  the circle or, for alerts that only list counties, whose counties touch it (using the bundled county shapes). Test,
+  cancelled and expired alerts are dropped. The browser refreshes every 5 minutes and when the tab becomes visible
+  again.
 - **Geocoding:** proxied to Nominatim, which sees only the server, not the user. Reverse lookups are rounded to
   about 1 km, responses are cached for a day, and requests are spaced at least a second apart.
 - **County layers:** their data stays in the browser bundle and is loaded per layer.
@@ -280,6 +297,7 @@ before redistributing its data or using it commercially. Listings may be out of 
 | Hate crimes | FBI Crime Data Explorer, 2020–2024 |
 | Presidential results | [tonmcg/US_County_Level_Election_Results_08-24](https://github.com/tonmcg/US_County_Level_Election_Results_08-24) |
 | Mobile 4G / 5G coverage | FCC Broadband Data Collection |
+| Weather alerts | [National Weather Service](https://www.weather.gov/documentation/services-web-api) |
 | Basemap, geocoding | © OpenStreetMap contributors, Nominatim |
 
 ## Contributing

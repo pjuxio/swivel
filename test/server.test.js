@@ -4,6 +4,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { after, before, describe, test } from 'node:test'
 import { createApp, MAX_RESULTS } from '../server/app.js'
+import { countiesNear } from '../server/counties.js'
+import { circleTouchesRing } from '../server/geo.js'
+import { fetchAlerts, toAlert } from '../server/weather.js'
 
 const NYC = { lat: 40.7128, lon: -74.006 }
 
@@ -33,6 +36,11 @@ const stubs = {
     /** @param {string} q */
     geocode: async (q) => (q === 'nowhere' ? null : { lat: 1, lon: 2 }),
     reverseGeocode: async () => 'Somewhere, NY',
+  },
+  /** @param {number} lat @param {number} _lon @param {number} radius */
+  alerts: async (lat, _lon, radius) => {
+    if (lat === 41) throw new Error('boom')
+    return [{ id: 'a1', event: 'Flood Warning', severity: 'Severe', atPoint: radius === 0 }]
   },
 }
 
@@ -105,6 +113,26 @@ describe('API', () => {
     assert.equal(res.status, 400)
   })
 
+  test('weather alerts', async () => {
+    let res = await s.post('/api/alerts', NYC)
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { alerts: [{ id: 'a1', event: 'Flood Warning', severity: 'Severe', atPoint: true }] })
+    res = await s.post('/api/alerts', { ...NYC, radius: 5000 })
+    assert.equal((/** @type {any} */ (await res.json())).alerts[0].atPoint, false, 'the radius reaches the fetcher')
+    for (const radius of [-1, 200_001, 'x']) {
+      res = await s.post('/api/alerts', { ...NYC, radius })
+      assert.equal(res.status, 400, String(radius))
+    }
+    res = await s.post('/api/alerts', { lat: 51.5, lon: -0.12 })
+    assert.deepEqual(await res.json(), { alerts: [] }, 'no lookup outside the US')
+    res = await s.post('/api/alerts', { lat: '', lon: '' })
+    assert.equal(res.status, 400)
+    res = await s.post('/api/alerts', { lat: 41, lon: -74 })
+    assert.equal(res.status, 502)
+    res = await s.fetch(`/api/alerts?lat=${NYC.lat}&lon=${NYC.lon}`)
+    assert.equal(res.status, 404, 'coordinates are not accepted in the query string')
+  })
+
   test('security headers', async () => {
     const res = await s.fetch('/api/health')
     const csp = res.headers.get('content-security-policy') ?? ''
@@ -119,6 +147,108 @@ describe('API', () => {
   test('responses are compressed', async () => {
     const res = await s.post('/api/amenities', { ...NYC, radius: 25_000, types: ['police'] }, { 'Accept-Encoding': 'gzip' })
     assert.equal(res.headers.get('content-encoding'), 'gzip')
+  })
+})
+
+describe('toAlert', () => {
+  const base = { id: 'x', status: 'Actual', messageType: 'Alert', event: 'Heat Advisory', severity: 'Minor' }
+  const later = new Date(Date.now() + 3_600_000).toISOString()
+
+  test('keeps a live alert and trims it to the fields we show', () => {
+    const a = toAlert({ ...base, ends: later, areaDesc: 'Kings, NY', geocode: { UGC: ['NYC047'] }, description: '  Hot.  ' })
+    assert.deepEqual(JSON.parse(JSON.stringify(a)), {
+      id: 'x',
+      event: 'Heat Advisory',
+      severity: 'Minor',
+      areaDesc: 'Kings, NY',
+      description: 'Hot.',
+      expires: later,
+    })
+  })
+
+  test('drops tests, cancellations and expired alerts', () => {
+    assert.equal(toAlert({ ...base, status: 'Test' }), null)
+    assert.equal(toAlert({ ...base, messageType: 'Cancel' }), null)
+    assert.equal(toAlert({ ...base, ends: new Date(Date.now() - 1000).toISOString() }), null)
+    assert.equal(toAlert({ ...base, event: '' }), null)
+  })
+
+  test('unknown severities are normalised', () => {
+    assert.equal(toAlert({ ...base, severity: '<script>' })?.severity, 'Unknown')
+  })
+})
+
+describe('circle and polygon geometry', () => {
+  // A 0.1 degree square (about 11 km) centred on (40, -100)
+  /** @type {[number, number][]} */
+  const square = [[-100.05, 39.95], [-99.95, 39.95], [-99.95, 40.05], [-100.05, 40.05], [-100.05, 39.95]]
+
+  test('circleTouchesRing', () => {
+    assert.ok(circleTouchesRing(40, -100, 100, square), 'center inside')
+    assert.ok(circleTouchesRing(40, -100.2, 20_000, square), 'edge reaches the circle')
+    assert.ok(circleTouchesRing(40, -100, 100_000, square), 'polygon entirely inside the circle')
+    assert.ok(!circleTouchesRing(40, -100.2, 5_000, square), 'too far')
+    assert.ok(!circleTouchesRing(41, -100, 50_000, square), 'too far north')
+  })
+
+  test('countiesNear uses the real county shapes', () => {
+    const small = countiesNear(40.7128, -74.006, 500)
+    assert.ok(small.has('36061'), 'New York County')
+    assert.ok(!small.has('36047'), 'Kings County is across the river')
+    const wide = countiesNear(40.7128, -74.006, 25_000)
+    for (const fips of ['36061', '36047', '36081', '34017']) assert.ok(wide.has(fips), fips)
+  })
+})
+
+describe('fetchAlerts with the radius', () => {
+  const props = (/** @type {string} */ id, /** @type {string[]} */ same, extra = {}) => ({
+    id, status: 'Actual', messageType: 'Alert', event: id, severity: 'Moderate', geocode: { SAME: same }, ...extra,
+  })
+  const square = {
+    type: 'Polygon',
+    coordinates: [[[-74.05, 40.68], [-73.95, 40.68], [-73.95, 40.78], [-74.05, 40.78], [-74.05, 40.68]]],
+  }
+  const features = [
+    { properties: props('manhattan-zone', ['036061']), geometry: null },
+    { properties: props('kings-zone', ['036047']), geometry: null },
+    { properties: props('far', ['006037']), geometry: null },
+    { properties: props('polygon-warning', ['006037'], { severity: 'Extreme' }), geometry: square },
+  ]
+  const realFetch = globalThis.fetch
+  /** @type {string[]} */
+  let urls = []
+  before(() => {
+    globalThis.fetch = /** @type {typeof fetch} */ (async (/** @type {string} */ url) => {
+      urls.push(String(url))
+      const point = String(url).includes('point=')
+      const body = point ? { features: [{ properties: props('at-point', [], { severity: 'Minor' }) }] } : { features }
+      return new Response(JSON.stringify(body), { status: 200 })
+    })
+  })
+  after(() => {
+    globalThis.fetch = realFetch
+  })
+
+  test('adds nearby county and polygon alerts, flagging the one at the point', async () => {
+    const alerts = await fetchAlerts(40.7128, -74.006, 3000)
+    assert.deepEqual(
+      alerts.map((a) => [a.id, a.atPoint]),
+      [['polygon-warning', false], ['manhattan-zone', false], ['kings-zone', false], ['at-point', true]],
+    )
+    assert.ok(alerts[0].geometry, 'polygons are returned for drawing')
+    assert.equal(alerts[1].geometry, undefined)
+  })
+
+  test('a small radius leaves out alerts for other counties', async () => {
+    const alerts = await fetchAlerts(40.7128, -74.006, 200)
+    assert.deepEqual(alerts.map((a) => a.id), ['polygon-warning', 'manhattan-zone', 'at-point'])
+  })
+
+  test('no radius means point alerts only, without the nationwide request', async () => {
+    urls = []
+    const alerts = await fetchAlerts(41.5, -73.5, 0)
+    assert.deepEqual(alerts.map((a) => a.id), ['at-point'])
+    assert.equal(urls.length, 1)
   })
 })
 

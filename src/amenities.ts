@@ -1,3 +1,5 @@
+import type { MultiPolygon, Polygon } from 'geojson'
+
 
 export type AmenityType = 'hospital' | 'police' | 'fire_station' | 'urgent_care' | 'data_center' | 'superfund' | 'airport' | 'train_station' | 'ghg_emitter' | 'pfas_system' | 'prison' | 'military' | 'ice_office' | 'tri' | 'brownfield' | 'landfill' | 'ev_charger' | 'sundown_town'
 
@@ -101,4 +103,26 @@ export async function reverseGeocode(lat: number, lon: number, signal?: AbortSig
 
 export async function geocode(q: string, signal?: AbortSignal): Promise<{ lat: number; lon: number } | null> {
   return (await post<{ hit: { lat: number; lon: number } | null }>('/api/geocode', { q }, signal)).hit
+}
+
+export interface WeatherAlert {
+  id: string
+  event: string
+  severity: 'Extreme' | 'Severe' | 'Moderate' | 'Minor' | 'Unknown'
+  headline?: string
+  areaDesc?: string
+  sender?: string
+  description?: string
+  instruction?: string
+  // ISO time the alert ends or expires
+  expires?: string
+  // In effect at the search point itself, as opposed to elsewhere within the radius
+  atPoint: boolean
+  // Warning polygon, when NWS drew one; county or zone alerts have none
+  geometry?: Polygon | MultiPolygon
+}
+
+// Active National Weather Service alerts at a point or within a radius (meters) of it, fetched through our server
+export async function fetchAlerts(lat: number, lon: number, radius: number, signal?: AbortSignal): Promise<WeatherAlert[]> {
+  return (await post<{ alerts: WeatherAlert[] }>('/api/alerts', { lat, lon, radius }, signal)).alerts
 }
